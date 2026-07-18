@@ -12,46 +12,46 @@ import {
 @Unique(['email', 'delFlag'])
 export class User {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
-  id: number
+  id!: number
 
   @Column({ type: 'varchar', length: 30, default: '' })
-  nickname: string
+  nickname!: string
 
   @Column({ type: 'varchar', length: 100, default: '' })
-  email: string
+  email!: string
 
   @Column({
     type: 'tinyint',
     default: 2,
     comment: '用户性别: 0=男 1=女 2=未知',
   })
-  gender: number
+  gender!: number
 
   @Column({ type: 'varchar', length: 255, default: '' })
-  avatar: string
+  avatar!: string
 
   @Column({ type: 'varchar', length: 255, default: '' })
-  password: string
+  password!: string
 
   @Column({ type: 'tinyint', default: 0, comment: '账号状态: 0=正常 1=停用' })
-  status: number
+  status!: number
 
   @Index()
   @Column({ type: 'tinyint', default: 0, comment: '删除标志: 0=存在 2=删除' })
-  delFlag: number
+  delFlag!: number
 
   @Column({ type: 'varchar', length: 45, default: '' })
-  lastLoginIp: string
+  lastLoginIp!: string
 
   @Column({ type: 'datetime', nullable: true })
-  lastLoginTime: Date | null
+  lastLoginTime!: Date | null
 
   @Column({ type: 'varchar', length: 255, default: '' })
-  remark: string
+  remark!: string
 
   @CreateDateColumn({ type: 'datetime' })
-  createdAt: Date
+  createdAt!: Date
 
   @UpdateDateColumn({ type: 'datetime' })
-  updatedAt: Date
+  updatedAt!: Date
 }
