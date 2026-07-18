@@ -20,7 +20,11 @@ export class User {
   @Column({ type: 'varchar', length: 100, default: '' })
   email: string
 
-  @Column({ type: 'tinyint', default: 2, comment: '用户性别: 0=男 1=女 2=未知' })
+  @Column({
+    type: 'tinyint',
+    default: 2,
+    comment: '用户性别: 0=男 1=女 2=未知',
+  })
   gender: number
 
   @Column({ type: 'varchar', length: 255, default: '' })
