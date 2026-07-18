@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { hash } from 'bcryptjs'
-import { AppModule } from '../app.module'
+import { AppModule } from '../app/app.module'
 import { User } from '../users/user.entity'
 
 // 初始用户配置（按需修改）
