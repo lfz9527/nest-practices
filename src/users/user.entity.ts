@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  Unique,
 } from 'typeorm'
 
 @Entity('users')
+@Unique(['email', 'delFlag'])
 export class User {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   id: number
@@ -15,7 +17,6 @@ export class User {
   @Column({ type: 'varchar', length: 30, default: '' })
   nickname: string
 
-  @Index({ unique: true })
   @Column({ type: 'varchar', length: 100, default: '' })
   email: string
 

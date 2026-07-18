@@ -42,7 +42,7 @@ CREATE TABLE `users` (
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_email` (`email`),
+    UNIQUE KEY `uk_email_del_flag` (`email`, `del_flag`),
     KEY `idx_status` (`status`),
     KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
@@ -59,6 +59,6 @@ CREATE TABLE `users` (
 | 索引 | 字段 | 用途 |
 |---|---|---|
 | PRIMARY | id | 主键查询 |
-| uk_email | email | 登录/注册时邮箱唯一性校验 |
+| uk_email_del_flag | email, del_flag | 联合唯一索引，正常账号邮箱唯一，软删除后同邮箱可复用 |
 | idx_status | status | 按账号状态筛选（启用/停用） |
 | idx_del_flag | del_flag | 软删除过滤，几乎每条查询都带 `WHERE del_flag = 0` |
