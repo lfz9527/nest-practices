@@ -28,3 +28,6 @@ CREATE TABLE `users` (
     KEY `idx_status` (`status`),
     KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+-- 初始用户（密码由应用层 bcryptjs 加密，请通过 pnpm seed 创建，勿直接执行此 INSERT）
+-- INSERT INTO `users` (`nickname`, `email`, `password`, `remark`) VALUES ('admin', 'admin@example.com', '<bcryptjs-hashed>', '初始管理员用户');
