@@ -15,7 +15,7 @@ function loadYamlConfig() {
   imports: [
     ConfigModule.forRoot({
       load: [loadYamlConfig],
-      ignoreEnvFile: false,
+      isGlobal: true,
     }),
   ],
   exports: [ConfigModule],
