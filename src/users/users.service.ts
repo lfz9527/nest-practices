@@ -11,7 +11,7 @@ export class UsersService {
   ) {}
 
   async findById(id: number): Promise<User> {
-    const user = await this.userRepo.findOne({
+    const user: User | null = await this.userRepo.findOne({
       where: { id, delFlag: 0 },
     })
     if (!user) {
