@@ -18,12 +18,8 @@ export class ErrorHandler {
   }
 
   handleError(error: unknown, response?: Response): void {
-    const { httpCode, body, operational } = this.normalize(error)
-    if (operational) {
-      this.logger.error({ err: error }, body.message)
-    } else {
-      this.logger.fatal({ err: error }, body.message)
-    }
+    const { httpCode, body, logLevel } = this.normalize(error)
+    this.logger[logLevel]({ err: error }, body.message)
     if (response) {
       // HTTP 路径：发响应后进程继续（规格 D3，用户裁定偏离 2.6）
       response.status(httpCode).json(body)
@@ -45,13 +41,13 @@ export class ErrorHandler {
   private normalize(error: unknown): {
     httpCode: number
     body: ResponseBody
-    operational: boolean
+    logLevel: 'warn' | 'error' | 'fatal'
   } {
     if (error instanceof AppError) {
       return {
         httpCode: error.httpCode,
         body: { code: error.code, message: error.message, data: null },
-        operational: error.isOperational,
+        logLevel: 'error',
       }
     }
     if (error instanceof HttpException) {
@@ -64,7 +60,8 @@ export class ErrorHandler {
           message: this.extractMessage(error),
           data: null,
         },
-        operational: true,
+        // 404 多为浏览器探测噪声，降级为 warn 避免刷屏
+        logLevel: status === 404 ? 'warn' : 'error',
       }
     }
     // 未知异常兜底：对外不泄露内部细节，统一固定文案（规格 §5）
@@ -75,7 +72,7 @@ export class ErrorHandler {
         message: '服务器内部错误',
         data: null,
       },
-      operational: false,
+      logLevel: 'fatal',
     }
   }
 

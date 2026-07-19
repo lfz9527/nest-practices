@@ -1,4 +1,8 @@
-import { BadRequestException, HttpException } from '@nestjs/common'
+import {
+  BadRequestException,
+  HttpException,
+  NotFoundException,
+} from '@nestjs/common'
 import type { Response } from 'express'
 import type { PinoLogger } from 'nestjs-pino'
 import { AppError } from './app-error'
@@ -7,12 +11,12 @@ import { ErrorHandler } from './error-handler'
 
 describe('ErrorHandler', () => {
   let handler: ErrorHandler
-  let logger: { error: jest.Mock; fatal: jest.Mock }
+  let logger: { error: jest.Mock; fatal: jest.Mock; warn: jest.Mock }
   let shutdown: jest.Mock
   let response: { status: jest.Mock; json: jest.Mock }
 
   beforeEach(() => {
-    logger = { error: jest.fn(), fatal: jest.fn() }
+    logger = { error: jest.fn(), fatal: jest.fn(), warn: jest.fn() }
     shutdown = jest.fn().mockResolvedValue(undefined)
     response = { status: jest.fn(), json: jest.fn() }
     response.status.mockReturnValue(response)
@@ -62,6 +66,24 @@ describe('ErrorHandler', () => {
       data: null,
     })
     expect(shutdown).not.toHaveBeenCalled()
+  })
+
+  it('框架 404 NotFoundException：降级为 warn 避免浏览器探测噪声刷屏', () => {
+    const error = new NotFoundException('Cannot GET /noise')
+
+    handler.handleError(error, response as unknown as Response)
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      { err: error },
+      'Cannot GET /noise',
+    )
+    expect(logger.error).not.toHaveBeenCalled()
+    expect(response.status).toHaveBeenCalledWith(404)
+    expect(response.json).toHaveBeenCalledWith({
+      code: 40400,
+      message: 'Cannot GET /noise',
+      data: null,
+    })
   })
 
   it('裸 Error 有响应流：fatal 日志、响应 50000、进程继续（规格 D3）', () => {
