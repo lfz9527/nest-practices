@@ -15,9 +15,6 @@ async function bootstrap() {
 
   app.useLogger(logger)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
-  await app.listen(port)
-
-  console.log(`应用已启动: http://localhost:${port}`)
 
   // 先注册退出动作、再挂进程钩子，保证钩子触发时退出动作必已就绪（规格 §3）
   errorHandler.registerShutdown(async () => {
@@ -31,6 +28,10 @@ async function bootstrap() {
   process.on('uncaughtException', (error) => {
     errorHandler.handleError(error)
   })
+
+  await app.listen(port)
+
+  console.log(`应用已启动: http://localhost:${port}`)
 }
 bootstrap().catch((error: unknown) => {
   // bootstrap 阶段 pino 可能尚未就绪，console 是唯一可靠输出（规格 §5）
