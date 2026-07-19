@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core'
+import { APP_FILTER } from '@nestjs/core'
 import { LoggerModule } from 'nestjs-pino'
 import { AllExceptionsFilter } from './all-exceptions.filter'
 import { ErrorHandler } from './error-handler'
-import { TransformInterceptor } from './transform.interceptor'
 
 @Module({
   imports: [
@@ -23,8 +22,7 @@ import { TransformInterceptor } from './transform.interceptor'
   providers: [
     ErrorHandler,
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
-    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
   ],
   exports: [ErrorHandler],
 })
-export class CommonModule {}
+export class ErrorsModule {}

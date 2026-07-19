@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app/app.module'
-import { ErrorHandler } from './common/error-handler'
+import { ErrorHandler } from './errors/error-handler'
 
 async function bootstrap() {
   // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出

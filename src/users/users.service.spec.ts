@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
-import { AppError, ErrorCodes } from '../common/app-error'
+import { AppError, ErrorCodes } from '../errors/app-error'
 import { User } from './user.entity'
 import { UsersService } from './users.service'
 
