@@ -17,7 +17,7 @@ export class UsersService {
       where: { id, delFlag: 0 },
     })
     if (!user) {
-      throw new AppError(ErrorCodes.USER_NOT_FOUND, `用户 ${id} 不存在`)
+      throw new AppError(ErrorCodes.BIZ_ERROR, `用户 ${id} 不存在`)
     }
     return user
   }

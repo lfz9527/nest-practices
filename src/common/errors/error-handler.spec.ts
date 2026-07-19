@@ -113,9 +113,7 @@ describe('ErrorHandler', () => {
 
   it('isTrustedError 三态判定', () => {
     expect(handler.isTrustedError(new AppError('业务失败'))).toBe(true)
-    expect(
-      handler.isTrustedError(new AppError(50000, '危', false)),
-    ).toBe(false)
+    expect(handler.isTrustedError(new AppError(50000, '危', false))).toBe(false)
     expect(handler.isTrustedError(new Error('boom'))).toBe(false)
   })
 

@@ -2,7 +2,7 @@ import { HttpException, Injectable } from '@nestjs/common'
 import type { Response } from 'express'
 import { PinoLogger } from 'nestjs-pino'
 import { AppError } from './app-error'
-import { ErrorCodes } from '../constants'
+import { BIZ_HTTP_CODE, UNKNOWN_HTTP_CODE } from '../constants'
 import { ResponseBody } from '../type'
 
 // 集中错误处理器：所有入口的错误最终都汇到这里
@@ -46,29 +46,29 @@ export class ErrorHandler {
     if (error instanceof AppError) {
       // 业务错误统一 HTTP 200，由 body.code 区分具体错误
       return {
-        httpCode: 200,
+        httpCode: BIZ_HTTP_CODE,
         body: { code: error.code, message: error.message, data: null },
         logLevel: 'error',
       }
     }
     if (error instanceof HttpException) {
-      // 系统错误（框架自发异常）：业务码按状态码×100 推导，统一降级为 warn
+      // 系统错误（框架自发异常）
       const status = error.getStatus()
       return {
         httpCode: status,
         body: {
-          code: status * 100,
+          code: status,
           message: this.extractMessage(error),
           data: null,
         },
-        logLevel: 'warn',
+        logLevel: 'error',
       }
     }
     // 未知异常兜底：对外不泄露内部细节，统一固定文案（规格 §5）
     return {
-      httpCode: ErrorCodes.UNKNOWN.httpCode,
+      httpCode: UNKNOWN_HTTP_CODE,
       body: {
-        code: ErrorCodes.UNKNOWN.code,
+        code: UNKNOWN_HTTP_CODE,
         message: '服务器内部错误',
         data: null,
       },
@@ -82,7 +82,7 @@ export class ErrorHandler {
       return res
     }
     const message = (res as { message?: string | string[] }).message
-    // 校验类异常的 message 为数组，合并为单条（规格 §5）
+    // 校验类异常的 message 为数组
     if (Array.isArray(message)) {
       return message.join('; ')
     }
