@@ -13,8 +13,8 @@ interface ErrorBody {
 // 集中错误处理器（nodebestpractices 2.4）：所有入口的错误最终都汇到这里
 @Injectable()
 export class ErrorHandler {
-  // 优雅退出动作由 main.ts 在挂进程钩子前注入（规格 §3 顺序保证），触发时必已就绪
-  private shutdown!: () => Promise<void>
+  // 优雅退出动作由 main.ts 在挂进程钩子前注入（规格 §3 顺序保证）
+  private shutdown?: () => Promise<void>
 
   constructor(private readonly logger: PinoLogger) {}
 
@@ -36,7 +36,9 @@ export class ErrorHandler {
     }
     // 进程级游离错误：不可信即优雅退出（nodebestpractices 2.6/2.10）
     if (!this.isTrustedError(error)) {
-      void this.shutdown()
+      if (this.shutdown) {
+        void this.shutdown()
+      }
     }
   }
 

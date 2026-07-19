@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, HttpException } from '@nestjs/common'
 import type { Response } from 'express'
 import type { PinoLogger } from 'nestjs-pino'
 import { AppError, ErrorCodes } from './app-error'
@@ -24,7 +24,7 @@ describe('ErrorHandler', () => {
 
     handler.handleError(error, response as unknown as Response)
 
-    expect(logger.error).toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith({ err: error }, error.message)
     expect(logger.fatal).not.toHaveBeenCalled()
     expect(response.status).toHaveBeenCalledWith(404)
     expect(response.json).toHaveBeenCalledWith({
@@ -64,9 +64,10 @@ describe('ErrorHandler', () => {
   })
 
   it('裸 Error 有响应流：fatal 日志、响应 50000、进程继续（规格 D3）', () => {
-    handler.handleError(new Error('boom'), response as unknown as Response)
+    const err = new Error('boom')
+    handler.handleError(err, response as unknown as Response)
 
-    expect(logger.fatal).toHaveBeenCalled()
+    expect(logger.fatal).toHaveBeenCalledWith({ err }, '服务器内部错误')
     expect(response.status).toHaveBeenCalledWith(500)
     expect(response.json).toHaveBeenCalledWith({
       code: 50000,
@@ -77,9 +78,10 @@ describe('ErrorHandler', () => {
   })
 
   it('裸 Error 无响应流（进程级游离错误）：fatal 日志并触发优雅退出', () => {
-    handler.handleError(new Error('boom'))
+    const err = new Error('boom')
+    handler.handleError(err)
 
-    expect(logger.fatal).toHaveBeenCalled()
+    expect(logger.fatal).toHaveBeenCalledWith({ err }, '服务器内部错误')
     expect(shutdown).toHaveBeenCalled()
   })
 
@@ -89,5 +91,34 @@ describe('ErrorHandler', () => {
       handler.isTrustedError(new AppError(ErrorCodes.UNKNOWN, '危', false)),
     ).toBe(false)
     expect(handler.isTrustedError(new Error('boom'))).toBe(false)
+  })
+
+  it('HttpException 字符串 message：直接返回，不合并', () => {
+    const error = new BadRequestException('参数错误')
+
+    handler.handleError(error, response as unknown as Response)
+
+    expect(response.status).toHaveBeenCalledWith(400)
+    expect(response.json).toHaveBeenCalledWith({
+      code: 40000,
+      message: '参数错误',
+      data: null,
+    })
+  })
+
+  it('HttpException 响应对象无 message 字段：兜底取 exception.message', () => {
+    const error = new HttpException(
+      { statusCode: 400, error: 'Bad Request' },
+      400,
+    )
+
+    handler.handleError(error, response as unknown as Response)
+
+    expect(response.status).toHaveBeenCalledWith(400)
+    expect(response.json).toHaveBeenCalledWith({
+      code: 40000,
+      message: error.message,
+      data: null,
+    })
   })
 })

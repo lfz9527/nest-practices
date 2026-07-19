@@ -1,3 +1,5 @@
+import type { Server } from 'node:http'
+
 import {
   Controller,
   Get,
@@ -27,6 +29,7 @@ class BoomController {
 
 describe('错误处理 E2E', () => {
   let app: INestApplication
+  let httpServer: Server
   const userRepo = { findOne: jest.fn() }
 
   beforeAll(async () => {
@@ -36,7 +39,10 @@ describe('错误处理 E2E', () => {
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
         // 桩掉日志：e2e 只验响应契约，不落真实日志
-        { provide: PinoLogger, useValue: { error: jest.fn(), fatal: jest.fn() } },
+        {
+          provide: PinoLogger,
+          useValue: { error: jest.fn(), fatal: jest.fn() },
+        },
         ErrorHandler,
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
         { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
@@ -47,6 +53,7 @@ describe('错误处理 E2E', () => {
     // 与 main.ts 保持一致的全局管道配置
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
     await app.init()
+    httpServer = app.getHttpServer() as Server
   })
 
   afterAll(async () => {
@@ -57,17 +64,19 @@ describe('错误处理 E2E', () => {
     const user = { id: 1, nickname: '甄嬛', delFlag: 0 }
     userRepo.findOne.mockResolvedValue(user)
 
-    const res = await request(app.getHttpServer()).get('/users/1').expect(200)
+    const res = await request(httpServer).get('/users/1').expect(200)
+    const body = res.body as { code: number; message: string; data: unknown }
 
-    expect(res.body).toEqual({ code: 0, message: 'ok', data: user })
+    expect(body).toEqual({ code: 0, message: 'ok', data: user })
   })
 
   it('GET /users/999 用户不存在：404 与业务码 40401', async () => {
     userRepo.findOne.mockResolvedValue(null)
 
-    const res = await request(app.getHttpServer()).get('/users/999').expect(404)
+    const res = await request(httpServer).get('/users/999').expect(404)
+    const body = res.body as { code: number; message: string; data: unknown }
 
-    expect(res.body).toEqual({
+    expect(body).toEqual({
       code: 40401,
       message: '用户 999 不存在',
       data: null,
@@ -75,15 +84,17 @@ describe('错误处理 E2E', () => {
   })
 
   it('GET /users/abc 参数非法：400 与推导码 40000', async () => {
-    const res = await request(app.getHttpServer()).get('/users/abc').expect(400)
+    const res = await request(httpServer).get('/users/abc').expect(400)
+    const body = res.body as { code: number; message: string; data: unknown }
 
-    expect(res.body).toMatchObject({ code: 40000, data: null })
+    expect(body).toMatchObject({ code: 40000, data: null })
   })
 
   it('GET /boom 未知异常：500 与兜底码 50000，不泄露内部信息', async () => {
-    const res = await request(app.getHttpServer()).get('/boom').expect(500)
+    const res = await request(httpServer).get('/boom').expect(500)
+    const body = res.body as { code: number; message: string; data: unknown }
 
-    expect(res.body).toEqual({
+    expect(body).toEqual({
       code: 50000,
       message: '服务器内部错误',
       data: null,
