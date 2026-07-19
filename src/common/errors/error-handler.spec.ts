@@ -24,14 +24,14 @@ describe('ErrorHandler', () => {
     handler.registerShutdown(shutdown)
   })
 
-  it('operational AppError：error 级日志、按注册码响应、不触发退出', () => {
+  it('业务 AppError：HTTP 200、error 级日志、按注册码响应、不触发退出', () => {
     const error = new AppError(ErrorCodes.USER_NOT_FOUND, '用户 999 不存在')
 
     handler.handleError(error, response as unknown as Response)
 
     expect(logger.error).toHaveBeenCalledWith({ err: error }, error.message)
     expect(logger.fatal).not.toHaveBeenCalled()
-    expect(response.status).toHaveBeenCalledWith(404)
+    expect(response.status).toHaveBeenCalledWith(200)
     expect(response.json).toHaveBeenCalledWith({
       code: 40401,
       message: '用户 999 不存在',
@@ -40,13 +40,13 @@ describe('ErrorHandler', () => {
     expect(shutdown).not.toHaveBeenCalled()
   })
 
-  it('未约定码的 AppError：响应 code -1 与 HTTP 400', () => {
+  it('未约定码的 AppError：HTTP 200、响应 code -1', () => {
     handler.handleError(
       new AppError('库存不足'),
       response as unknown as Response,
     )
 
-    expect(response.status).toHaveBeenCalledWith(400)
+    expect(response.status).toHaveBeenCalledWith(200)
     expect(response.json).toHaveBeenCalledWith({
       code: -1,
       message: '库存不足',

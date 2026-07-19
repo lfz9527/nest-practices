@@ -70,10 +70,10 @@ describe('错误处理 E2E', () => {
     expect(body).toEqual({ code: 0, message: 'ok', data: user })
   })
 
-  it('GET /users/999 用户不存在：404 与业务码 40401', async () => {
+  it('GET /users/999 用户不存在：HTTP 200 与业务码 40401', async () => {
     userRepo.findOne.mockResolvedValue(null)
 
-    const res = await request(httpServer).get('/users/999').expect(404)
+    const res = await request(httpServer).get('/users/999').expect(200)
     const body = res.body as { code: number; message: string; data: unknown }
 
     expect(body).toEqual({

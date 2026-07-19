@@ -44,8 +44,9 @@ export class ErrorHandler {
     logLevel: 'warn' | 'error' | 'fatal'
   } {
     if (error instanceof AppError) {
+      // 业务错误统一 HTTP 200，由 body.code 区分具体错误
       return {
-        httpCode: error.httpCode,
+        httpCode: 200,
         body: { code: error.code, message: error.message, data: null },
         logLevel: 'error',
       }
