@@ -9,10 +9,16 @@ async function bootstrap() {
   // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
   const logger = app.get(Logger)
+  const configService = app.get(ConfigService)
+  const errorHandler = app.get(ErrorHandler)
+  const port = configService.get<number>('port') ?? 3000
+
   app.useLogger(logger)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
+  await app.listen(port)
 
-  const errorHandler = app.get(ErrorHandler)
+  console.log(`应用已启动: http://localhost:${port}`)
+
   // 先注册退出动作、再挂进程钩子，保证钩子触发时退出动作必已就绪（规格 §3）
   errorHandler.registerShutdown(async () => {
     await app.close()
@@ -25,12 +31,6 @@ async function bootstrap() {
   process.on('uncaughtException', (error) => {
     errorHandler.handleError(error)
   })
-
-  const configService = app.get(ConfigService)
-  const port = configService.get<number>('port') ?? 3000
-  await app.listen(port)
-  // pino 在 Windows 终端输出中文偶有编码问题，启动横幅用 console 以保可读
-  console.log(`应用已启动: http://localhost:${port}`)
 }
 bootstrap().catch((error: unknown) => {
   // bootstrap 阶段 pino 可能尚未就绪，console 是唯一可靠输出（规格 §5）
