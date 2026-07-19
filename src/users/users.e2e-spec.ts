@@ -11,12 +11,12 @@ import { Test } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { PinoLogger } from 'nestjs-pino'
 import request from 'supertest'
-import { AllExceptionsFilter } from '../src/common/all-exceptions.filter'
-import { ErrorHandler } from '../src/common/error-handler'
-import { TransformInterceptor } from '../src/common/transform.interceptor'
-import { User } from '../src/users/user.entity'
-import { UsersController } from '../src/users/users.controller'
-import { UsersService } from '../src/users/users.service'
+import { AllExceptionsFilter } from '../common/all-exceptions.filter'
+import { ErrorHandler } from '../common/error-handler'
+import { TransformInterceptor } from '../common/transform.interceptor'
+import { User } from './user.entity'
+import { UsersController } from './users.controller'
+import { UsersService } from './users.service'
 
 // 专供 500 用例的抛错控制器，仅注册在测试模块（规格 §6）
 @Controller('boom')
