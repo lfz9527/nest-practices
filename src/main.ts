@@ -26,7 +26,10 @@ async function bootstrap() {
   })
 
   const configService = app.get(ConfigService)
-  await app.listen(configService.get<number>('port') ?? 3000)
+  const port = configService.get<number>('port') ?? 3000
+  await app.listen(port)
+  const logger = app.get(Logger)
+  logger.log(`应用已启动: http://localhost:${port}`)
 }
 bootstrap().catch((error: unknown) => {
   // bootstrap 阶段 pino 可能尚未就绪，console 是唯一可靠输出（规格 §5）
