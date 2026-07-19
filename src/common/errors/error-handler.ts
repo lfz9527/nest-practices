@@ -1,7 +1,8 @@
 import { HttpException, Injectable } from '@nestjs/common'
 import type { Response } from 'express'
 import { PinoLogger } from 'nestjs-pino'
-import { AppError, ErrorCodes } from './app-error'
+import { AppError } from './app-error'
+import { ErrorCodes } from '../constants'
 import { ResponseBody } from '../type'
 
 // 集中错误处理器：所有入口的错误最终都汇到这里

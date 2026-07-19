@@ -1,7 +1,8 @@
 import { BadRequestException, HttpException } from '@nestjs/common'
 import type { Response } from 'express'
 import type { PinoLogger } from 'nestjs-pino'
-import { AppError, ErrorCodes } from './app-error'
+import { AppError } from './app-error'
+import { ErrorCodes } from '../constants'
 import { ErrorHandler } from './error-handler'
 
 describe('ErrorHandler', () => {

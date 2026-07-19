@@ -1,16 +1,5 @@
-export interface ErrorCodeDef {
-  code: number
-  httpCode: number
-}
-
-// 业务错误码注册表：新业务错误先在此约定专属码，未约定的用 BIZ_ERROR 兜底
-export const ErrorCodes = {
-  // 未特殊约定的业务错误兜底
-  BIZ_ERROR: { code: -1, httpCode: 400 },
-  // 未知异常兜底（非 AppError 的裸错误）
-  UNKNOWN: { code: 50000, httpCode: 500 },
-  USER_NOT_FOUND: { code: 40401, httpCode: 404 },
-} satisfies Record<string, ErrorCodeDef>
+import type { ErrorCodeDef } from '../type'
+import { ErrorCodes } from '../constants'
 
 // 唯一错误模型：不为每种错误建子类，用 code 属性区分
 export class AppError extends Error {
