@@ -8,7 +8,8 @@ import { ErrorHandler } from './common/errors/error-handler'
 async function bootstrap() {
   // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
-  app.useLogger(app.get(Logger))
+  const logger = app.get(Logger)
+  app.useLogger(logger)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
 
   const errorHandler = app.get(ErrorHandler)
@@ -28,8 +29,8 @@ async function bootstrap() {
   const configService = app.get(ConfigService)
   const port = configService.get<number>('port') ?? 3000
   await app.listen(port)
-  const logger = app.get(Logger)
-  logger.log(`应用已启动: http://localhost:${port}`)
+  // pino 在 Windows 终端输出中文偶有编码问题，启动横幅用 console 以保可读
+  console.log(`应用已启动: http://localhost:${port}`)
 }
 bootstrap().catch((error: unknown) => {
   // bootstrap 阶段 pino 可能尚未就绪，console 是唯一可靠输出（规格 §5）
