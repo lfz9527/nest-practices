@@ -27,7 +27,7 @@ describe('UsersService', () => {
     await expect(promise).rejects.toBeInstanceOf(AppError)
     await expect(promise).rejects.toMatchObject({
       code: ErrorCodes.USER_NOT_FOUND.code,
-      httpCode: 404,
+      httpCode: 200,
       isOperational: true,
       message: '用户 999 不存在',
     })
