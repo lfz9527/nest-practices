@@ -1,7 +1,6 @@
 import { Test } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { AppError } from '../common/errors/app-error'
-import { ErrorCodes } from '../common/constants'
 import { User } from './user.entity'
 import { UsersService } from './users.service'
 
@@ -19,15 +18,14 @@ describe('UsersService', () => {
     service = moduleRef.get(UsersService)
   })
 
-  it('用户不存在时抛出 USER_NOT_FOUND 的 AppError', async () => {
+  it('用户不存在时抛出 code -1 的 AppError', async () => {
     userRepo.findOne.mockResolvedValue(null)
 
     const promise = service.findById(999)
 
     await expect(promise).rejects.toBeInstanceOf(AppError)
     await expect(promise).rejects.toMatchObject({
-      code: ErrorCodes.USER_NOT_FOUND.code,
-      httpCode: 200,
+      code: -1,
       isOperational: true,
       message: '用户 999 不存在',
     })

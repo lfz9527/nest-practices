@@ -4,8 +4,3 @@ export interface ResponseBody<T = null> {
   message: string
   data: T
 }
-
-export interface ErrorCodeDef {
-  code: number
-  httpCode: number
-}

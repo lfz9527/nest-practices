@@ -70,32 +70,32 @@ describe('错误处理 E2E', () => {
     expect(body).toEqual({ code: 0, message: 'ok', data: user })
   })
 
-  it('GET /users/999 用户不存在：HTTP 200 与业务码 40401', async () => {
+  it('GET /users/999 用户不存在：HTTP 200 与业务码 -1', async () => {
     userRepo.findOne.mockResolvedValue(null)
 
     const res = await request(httpServer).get('/users/999').expect(200)
     const body = res.body as { code: number; message: string; data: unknown }
 
     expect(body).toEqual({
-      code: 40401,
+      code: -1,
       message: '用户 999 不存在',
       data: null,
     })
   })
 
-  it('GET /users/abc 参数非法：400 与推导码 40000', async () => {
+  it('GET /users/abc 参数非法：400 与业务码 400', async () => {
     const res = await request(httpServer).get('/users/abc').expect(400)
     const body = res.body as { code: number; message: string; data: unknown }
 
-    expect(body).toMatchObject({ code: 40000, data: null })
+    expect(body).toMatchObject({ code: 400, data: null })
   })
 
-  it('GET /boom 未知异常：500 与兜底码 50000，不泄露内部信息', async () => {
+  it('GET /boom 未知异常：500 与业务码 500，不泄露内部信息', async () => {
     const res = await request(httpServer).get('/boom').expect(500)
     const body = res.body as { code: number; message: string; data: unknown }
 
     expect(body).toEqual({
-      code: 50000,
+      code: 500,
       message: '服务器内部错误',
       data: null,
     })

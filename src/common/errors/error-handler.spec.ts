@@ -6,7 +6,6 @@ import {
 import type { Response } from 'express'
 import type { PinoLogger } from 'nestjs-pino'
 import { AppError } from './app-error'
-import { ErrorCodes } from '../constants'
 import { ErrorHandler } from './error-handler'
 
 describe('ErrorHandler', () => {
@@ -24,8 +23,8 @@ describe('ErrorHandler', () => {
     handler.registerShutdown(shutdown)
   })
 
-  it('业务 AppError：HTTP 200、error 级日志、按注册码响应、不触发退出', () => {
-    const error = new AppError(ErrorCodes.USER_NOT_FOUND, '用户 999 不存在')
+  it('业务 AppError：HTTP 200、error 级日志、不触发退出', () => {
+    const error = new AppError(40401, '用户 999 不存在')
 
     handler.handleError(error, response as unknown as Response)
 
@@ -54,7 +53,7 @@ describe('ErrorHandler', () => {
     })
   })
 
-  it('系统错误 HttpException：warn 级别、状态码×100 推导业务码，数组 message 合并', () => {
+  it('系统错误 HttpException：warn 级别、数组 message 合并', () => {
     const error = new BadRequestException(['a 必填', 'b 必须为数字'])
 
     handler.handleError(error, response as unknown as Response)
@@ -65,7 +64,7 @@ describe('ErrorHandler', () => {
     )
     expect(response.status).toHaveBeenCalledWith(400)
     expect(response.json).toHaveBeenCalledWith({
-      code: 40000,
+      code: 400,
       message: 'a 必填; b 必须为数字',
       data: null,
     })
@@ -84,20 +83,20 @@ describe('ErrorHandler', () => {
     expect(logger.error).not.toHaveBeenCalled()
     expect(response.status).toHaveBeenCalledWith(404)
     expect(response.json).toHaveBeenCalledWith({
-      code: 40400,
+      code: 404,
       message: 'Cannot GET /noise',
       data: null,
     })
   })
 
-  it('裸 Error 有响应流：fatal 日志、响应 50000、进程继续（规格 D3）', () => {
+  it('裸 Error 有响应流：fatal 日志、响应 500、进程继续（规格 D3）', () => {
     const err = new Error('boom')
     handler.handleError(err, response as unknown as Response)
 
     expect(logger.fatal).toHaveBeenCalledWith({ err }, '服务器内部错误')
     expect(response.status).toHaveBeenCalledWith(500)
     expect(response.json).toHaveBeenCalledWith({
-      code: 50000,
+      code: 500,
       message: '服务器内部错误',
       data: null,
     })
@@ -115,7 +114,7 @@ describe('ErrorHandler', () => {
   it('isTrustedError 三态判定', () => {
     expect(handler.isTrustedError(new AppError('业务失败'))).toBe(true)
     expect(
-      handler.isTrustedError(new AppError(ErrorCodes.UNKNOWN, '危', false)),
+      handler.isTrustedError(new AppError(50000, '危', false)),
     ).toBe(false)
     expect(handler.isTrustedError(new Error('boom'))).toBe(false)
   })
@@ -127,7 +126,7 @@ describe('ErrorHandler', () => {
 
     expect(response.status).toHaveBeenCalledWith(400)
     expect(response.json).toHaveBeenCalledWith({
-      code: 40000,
+      code: 400,
       message: '参数错误',
       data: null,
     })
@@ -143,7 +142,7 @@ describe('ErrorHandler', () => {
 
     expect(response.status).toHaveBeenCalledWith(400)
     expect(response.json).toHaveBeenCalledWith({
-      code: 40000,
+      code: 400,
       message: error.message,
       data: null,
     })
