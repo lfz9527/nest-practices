@@ -1,6 +1,3 @@
-// 业务响应码统一管理：成功码与错误码都集中在本文件（规格 D8）
-export const SUCCESS_CODE = 0
-
 export interface ErrorCodeDef {
   code: number
   httpCode: number

@@ -5,7 +5,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common'
 import { map, Observable } from 'rxjs'
-import { SUCCESS_CODE } from '../errors/app-error'
+import { SUCCESS_CODE } from '../constants'
 
 export interface SuccessBody<T> {
   code: number
@@ -13,7 +13,7 @@ export interface SuccessBody<T> {
   data: T
 }
 
-// 成功响应统一包裹为业务码结构（规格 D1）；'ok' 为已批准契约中的固定成功文案
+// 成功响应统一包裹为业务码结构
 @Injectable()
 export class TransformInterceptor<T> implements NestInterceptor<
   T,
