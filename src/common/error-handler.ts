@@ -10,7 +10,7 @@ interface ErrorBody {
   data: null
 }
 
-// 集中错误处理器（nodebestpractices 2.4）：所有入口的错误最终都汇到这里
+// 集中错误处理器：所有入口的错误最终都汇到这里
 @Injectable()
 export class ErrorHandler {
   // 优雅退出动作由 main.ts 在挂进程钩子前注入（规格 §3 顺序保证）
@@ -34,7 +34,7 @@ export class ErrorHandler {
       response.status(httpCode).json(body)
       return
     }
-    // 进程级游离错误：不可信即优雅退出（nodebestpractices 2.6/2.10）
+    // 进程级游离错误：不可信即优雅退出
     if (!this.isTrustedError(error)) {
       if (this.shutdown) {
         void this.shutdown()
@@ -42,7 +42,7 @@ export class ErrorHandler {
     }
   }
 
-  // 可信度判定口径（nodebestpractices 2.3）：非 AppError 一律不可信
+  // 可信度判定口径：非 AppError 一律不可信
   isTrustedError(error: unknown): boolean {
     return error instanceof AppError && error.isOperational
   }

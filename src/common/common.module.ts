@@ -12,7 +12,7 @@ import { TransformInterceptor } from './transform.interceptor'
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         pinoHttp: {
-          // 开发期经 pino-pretty 输出可读日志；生产置 false 保持 JSON 到 stdout（nodebestpractices 2.7 / 规格 D4）
+          // 开发期经 pino-pretty 输出可读日志；生产置 false 保持 JSON 到 stdout
           transport: configService.get<boolean>('logger.pretty')
             ? { target: 'pino-pretty' }
             : undefined,

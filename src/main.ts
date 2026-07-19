@@ -6,7 +6,7 @@ import { AppModule } from './app/app.module'
 import { ErrorHandler } from './common/error-handler'
 
 async function bootstrap() {
-  // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出（nodebestpractices 2.7）
+  // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
   app.useLogger(app.get(Logger))
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
@@ -17,7 +17,7 @@ async function bootstrap() {
     await app.close()
     process.exit(1)
   })
-  // Promise 悬空拒绝一律转正为 uncaughtException，统一兜底（nodebestpractices 2.10）
+  // Promise 悬空拒绝一律转正为 uncaughtException，统一兜底
   process.on('unhandledRejection', (reason) => {
     throw reason
   })

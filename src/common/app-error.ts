@@ -15,7 +15,7 @@ export const ErrorCodes = {
   USER_NOT_FOUND: { code: 40401, httpCode: 404 },
 } satisfies Record<string, ErrorCodeDef>
 
-// 唯一错误模型（nodebestpractices 2.2）：不为每种错误建子类，用 code 属性区分
+// 唯一错误模型：不为每种错误建子类，用 code 属性区分
 export class AppError extends Error {
   readonly code: number
   readonly httpCode: number
@@ -38,7 +38,7 @@ export class AppError extends Error {
     this.isOperational = withDef
       ? isOperational
       : ((messageOrIsOperational as boolean | undefined) ?? true)
-    // 保留栈追踪，起点指向抛错处（nodebestpractices 2.2）
+    // 保留栈追踪，起点指向抛错处
     Error.captureStackTrace(this, this.constructor)
   }
 }
