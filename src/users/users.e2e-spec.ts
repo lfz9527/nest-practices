@@ -41,7 +41,7 @@ describe('错误处理 E2E', () => {
         // 桩掉日志：e2e 只验响应契约，不落真实日志
         {
           provide: PinoLogger,
-          useValue: { error: jest.fn(), fatal: jest.fn() },
+          useValue: { error: jest.fn(), fatal: jest.fn(), warn: jest.fn() },
         },
         ErrorHandler,
         { provide: APP_FILTER, useClass: AllExceptionsFilter },

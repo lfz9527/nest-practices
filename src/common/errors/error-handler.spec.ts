@@ -54,11 +54,15 @@ describe('ErrorHandler', () => {
     })
   })
 
-  it('框架 HttpException：状态码×100 推导业务码，数组 message 合并', () => {
+  it('系统错误 HttpException：warn 级别、状态码×100 推导业务码，数组 message 合并', () => {
     const error = new BadRequestException(['a 必填', 'b 必须为数字'])
 
     handler.handleError(error, response as unknown as Response)
 
+    expect(logger.warn).toHaveBeenCalledWith(
+      { err: error },
+      'a 必填; b 必须为数字',
+    )
     expect(response.status).toHaveBeenCalledWith(400)
     expect(response.json).toHaveBeenCalledWith({
       code: 40000,
@@ -68,7 +72,7 @@ describe('ErrorHandler', () => {
     expect(shutdown).not.toHaveBeenCalled()
   })
 
-  it('框架 404 NotFoundException：降级为 warn 避免浏览器探测噪声刷屏', () => {
+  it('系统错误 404 NotFoundException：warn 级别，不污染 error 日志', () => {
     const error = new NotFoundException('Cannot GET /noise')
 
     handler.handleError(error, response as unknown as Response)

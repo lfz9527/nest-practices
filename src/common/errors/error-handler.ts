@@ -21,7 +21,7 @@ export class ErrorHandler {
     const { httpCode, body, logLevel } = this.normalize(error)
     this.logger[logLevel]({ err: error }, body.message)
     if (response) {
-      // HTTP 路径：发响应后进程继续（规格 D3，用户裁定偏离 2.6）
+      // HTTP 路径：发响应后进程继续
       response.status(httpCode).json(body)
       return
     }
@@ -51,7 +51,7 @@ export class ErrorHandler {
       }
     }
     if (error instanceof HttpException) {
-      // 框架自发异常：业务码按状态码×100 推导（规格 §4）
+      // 系统错误（框架自发异常）：业务码按状态码×100 推导，统一降级为 warn
       const status = error.getStatus()
       return {
         httpCode: status,
@@ -60,8 +60,7 @@ export class ErrorHandler {
           message: this.extractMessage(error),
           data: null,
         },
-        // 404 多为浏览器探测噪声，降级为 warn 避免刷屏
-        logLevel: status === 404 ? 'warn' : 'error',
+        logLevel: 'warn',
       }
     }
     // 未知异常兜底：对外不泄露内部细节，统一固定文案（规格 §5）
