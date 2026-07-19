@@ -5,18 +5,14 @@ import { LoggerModule } from 'nestjs-pino'
 import { AllExceptionsFilter } from './all-exceptions.filter'
 import { ErrorHandler } from './error-handler'
 
-const transport = {
+const prettyTransport = {
   target: 'pino-pretty',
+  level: 'info',
   options: {
     colorize: true,
-    // 关闭中文 Unicode 转义 \uXXXX
     translateTime: 'yyyy-MM-dd HH:mm:ss',
     ignore: 'pid,hostname',
-    messageKey: 'msg',
     singleLine: true,
-    // 强制输出 utf8
-    appendNewLine: true,
-    escapeJson: false,
   },
 }
 
@@ -30,11 +26,7 @@ const transport = {
         return {
           pinoHttp: {
             // 开发期经 pino-pretty 输出可读日志；生产置 false 保持 JSON 到 stdout
-            transport: pretty ? transport : undefined,
-            base: null,
-            formatters: {
-              log: (record) => record,
-            },
+            transport: pretty ? prettyTransport : undefined,
           },
         }
       },

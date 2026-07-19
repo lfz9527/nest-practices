@@ -7,7 +7,11 @@ import { ErrorHandler } from './common/errors/error-handler'
 
 async function bootstrap() {
   // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出
-  const app = await NestFactory.create(AppModule, { bufferLogs: true })
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    logger: false,
+    cors: false,
+  })
   const logger = app.get(Logger)
   const configService = app.get(ConfigService)
   const errorHandler = app.get(ErrorHandler)

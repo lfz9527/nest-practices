@@ -15,7 +15,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
         database: configService.get<string>('database.database'),
         autoLoadEntities: true,
         // synchronize: 开发环境自动同步表结构，生产环境必须关闭
-        synchronize: true,
+        synchronize: configService.get<string>('env') === 'development',
       }),
     }),
   ],

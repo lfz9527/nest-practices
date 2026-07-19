@@ -1,4 +1,7 @@
-# config.dev.yaml — 开发环境配置
+# 环境配置
+
+# 当前环境
+env: development
 
 # 服务端口
 port: 3000
