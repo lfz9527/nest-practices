@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
+import { AppError, ErrorCodes } from '../common/app-error'
 import { User } from './user.entity'
 
 @Injectable()
@@ -15,7 +16,7 @@ export class UsersService {
       where: { id, delFlag: 0 },
     })
     if (!user) {
-      throw new NotFoundException(`用户 ${id} 不存在`)
+      throw new AppError(ErrorCodes.USER_NOT_FOUND, `用户 ${id} 不存在`)
     }
     return user
   }
