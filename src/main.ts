@@ -1,3 +1,12 @@
+import { platform } from 'node:os'
+
+// Windows 上 stdout 默认编码非 UTF-8，pino 写入的 UTF-8 字节流会被终端
+// 以 GBK 解码导致中文乱码；console.log 是 Node.js 封装做了适配所以正常。
+// 必须在 pino 首次写入前设置，否则无效。
+if (platform() === 'win32') {
+  process.stdout.setDefaultEncoding('utf-8')
+}
+
 import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
