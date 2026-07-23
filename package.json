@@ -19,7 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
-        "clean": "rimraf node_modules  pnpm-lock.yaml || exit 0"
+    "clean": "rimraf node_modules  pnpm-lock.yaml || exit 0"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -33,6 +33,9 @@
     "js-yaml": "^5.2.1",
     "mysql2": "^3.23.0",
     "nestjs-pino": "^4.6.1",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "pino-roll": "^4.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "^1.1.0"
@@ -47,6 +50,7 @@
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.0.0",
+    "@types/pino-http": "^6.1.0",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",

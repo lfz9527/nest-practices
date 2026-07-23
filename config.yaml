@@ -22,4 +22,8 @@ database:
 # 日志
 logger:
   # 开发期 true 经 pino-pretty 输出可读日志；生产环境置 false 保持 JSON 到 stdout
-  pretty: true
+  pretty: false
+  file:
+    enabled: true
+    path: ./logs
+    maxSize: 10        # MB
