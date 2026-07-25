@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { AppError } from '../common/errors/app-error'
-import { ErrorCodes } from '../common/constants'
+import { ErrorCodes } from '../common/errors/error-codes'
 import { User } from './user.entity'
 
 @Injectable()

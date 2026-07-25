@@ -5,8 +5,10 @@ import {
   NestInterceptor,
 } from '@nestjs/common'
 import { map, Observable } from 'rxjs'
-import { SUCCESS_CODE } from '../constants'
-import { ResponseBody } from '../type'
+import { ResponseBody } from '../response.interface'
+
+// 成功响应业务码
+const SUCCESS_CODE = 0
 
 // 成功响应统一包裹为业务码结构
 @Injectable()

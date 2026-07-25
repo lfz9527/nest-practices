@@ -1,4 +1,4 @@
-import { ErrorCodes } from '../constants'
+import { ErrorCodes } from './error-codes'
 
 // 唯一错误模型：不为每种错误建子类，用 code 属性区分
 export class AppError extends Error {

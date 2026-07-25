@@ -1,6 +1,3 @@
-// 正常返回，业务码为 0
-export const SUCCESS_CODE = 0
-
 // 业务httpCode统一返回 200
 export const BIZ_HTTP_CODE = 200
 
