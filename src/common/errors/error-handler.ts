@@ -3,7 +3,7 @@ import type { Response } from 'express'
 import { PinoLogger } from 'nestjs-pino'
 import { AppError } from './app-error'
 import { BIZ_HTTP_CODE, UNKNOWN_HTTP_CODE } from './error-codes'
-import { ResponseBody } from '../response.interface'
+import { ResponseBody } from '../types'
 
 // 集中错误处理器：所有入口的错误最终都汇到这里
 @Injectable()

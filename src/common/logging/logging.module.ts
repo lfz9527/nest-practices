@@ -3,10 +3,11 @@ import { ConfigService } from '@nestjs/config'
 import { LoggerModule } from 'nestjs-pino'
 import pinoPretty from 'pino-pretty'
 import pino from 'pino'
+import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 type RequestWithId = IncomingMessage & {
-  requestId?: string
+  id?: string
   ip?: string
 }
 
@@ -34,6 +35,12 @@ const ignoredPaths = ['/.well-known/appspecific/com.chrome.devtools.json']
 
         return {
           pinoHttp: {
+            genReqId: (req) => {
+              return (
+                (req.headers['x-request-id'] as string | undefined) ||
+                randomUUID()
+              )
+            },
             ...(pretty ? { stream } : {}),
             ...(!pretty && fileEnabled
               ? {
@@ -71,16 +78,18 @@ const ignoredPaths = ['/.well-known/appspecific/com.chrome.devtools.json']
                 }
               : {}),
             serializers: {
-              req: (req: RequestWithId) => ({
-                method: req.method,
-                url: req.url,
-                requestId: req.requestId || req.headers?.['x-request-id'],
-                ip: req.ip || req.headers?.['x-forwarded-for'],
-                headers: {
-                  'user-agent': req.headers['user-agent'],
-                  'content-type': req.headers?.['content-type'],
-                },
-              }),
+              req: (req: RequestWithId) => {
+                return {
+                  method: req.method,
+                  url: req.url,
+                  ip: req.ip || req.headers?.['x-forwarded-for'],
+                  headers: {
+                    'user-agent': req.headers['user-agent'],
+                    'content-type': req.headers?.['content-type'],
+                    'x-request-id': req.id,
+                  },
+                }
+              },
               res: (res: ResponseWithStatus) => ({
                 statusCode: res.statusCode,
               }),

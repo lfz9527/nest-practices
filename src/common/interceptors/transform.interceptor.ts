@@ -5,7 +5,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common'
 import { map, Observable } from 'rxjs'
-import { ResponseBody } from '../response.interface'
+import { ResponseBody } from '../types'
 
 // 成功响应业务码
 const SUCCESS_CODE = 0
