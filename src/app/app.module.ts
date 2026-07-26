@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ErrorsModule } from '../common/errors/errors.module'
 import { InterceptorsModule } from '../common/interceptors/interceptors.module'
+import { MiddlewareModule } from '../common/middleware/middleware.module'
 import { AppConfigModule } from '../config/config.module'
 import { DatabaseModule } from '../database/database.module'
 import { UsersModule } from '../users/users.module'
@@ -15,6 +16,8 @@ import { AppService } from './app.service'
     ErrorsModule,
     // 拦截器模块
     InterceptorsModule,
+    // 中间件
+    MiddlewareModule,
     // 数据库连接
     DatabaseModule,
     // 用户模块

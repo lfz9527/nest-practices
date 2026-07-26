@@ -25,6 +25,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService)
   const errorHandler = app.get(ErrorHandler)
   const port = configService.get<number>('port') ?? 3000
+  const baseUrl = `http://localhost:${port}`
 
   app.useLogger(logger)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
@@ -44,7 +45,12 @@ async function bootstrap() {
 
   await app.listen(port)
 
-  console.log(`应用已启动: http://localhost:${port}`)
+  logger.log({
+    msg: `
+    ============================================
+    🌍 接口地址：\x1b[36m${baseUrl}\x1b[0m
+    `,
+  })
 }
 bootstrap().catch((error: unknown) => {
   // bootstrap 阶段 pino 可能尚未就绪，console 是唯一可靠输出（规格 §5）

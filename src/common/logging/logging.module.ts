@@ -6,11 +6,13 @@ import pino from 'pino'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 type RequestWithId = IncomingMessage & {
-  id?: string
+  requestId?: string
   ip?: string
 }
 
 type ResponseWithStatus = ServerResponse
+
+const ignoredPaths = ['/.well-known/appspecific/com.chrome.devtools.json']
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ type ResponseWithStatus = ServerResponse
 
         const stream = pinoPretty({
           colorize: true,
-          translateTime: 'yyyy-MM-dd HH:mm:ss',
+          translateTime: 'yyyy-mm-dd HH:MM:ss',
           ignore: 'pid,hostname',
           singleLine: true,
           destination: process.stdout,
@@ -72,7 +74,7 @@ type ResponseWithStatus = ServerResponse
               req: (req: RequestWithId) => ({
                 method: req.method,
                 url: req.url,
-                requestId: req.id || req.headers?.['x-request-id'],
+                requestId: req.requestId || req.headers?.['x-request-id'],
                 ip: req.ip || req.headers?.['x-forwarded-for'],
                 headers: {
                   'user-agent': req.headers['user-agent'],
@@ -95,7 +97,6 @@ type ResponseWithStatus = ServerResponse
             // 自动日志过滤
             autoLogging: {
               ignore: (req) => {
-                const ignoredPaths = ['/health', '/ping', '/metrics']
                 return ignoredPaths.some((path) => req.url?.startsWith(path))
               },
             },
