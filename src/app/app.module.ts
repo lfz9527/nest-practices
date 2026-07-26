@@ -11,7 +11,9 @@ import { AppService } from './app.service'
   imports: [
     // 全局配置
     AppConfigModule,
+    // 错误
     ErrorsModule,
+    // 拦截器模块
     InterceptorsModule,
     // 数据库连接
     DatabaseModule,
