@@ -52,3 +52,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # ai
 .superpowers
 docs
+.reasonix
+reasonix.toml
