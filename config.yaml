@@ -32,5 +32,5 @@ logger:
 jwt:
   # 签名密钥（生产环境应通过环境变量注入，勿硬编码）
   secret: 'nest-practices-secret-key'
-  # 令牌有效期
-  expiresIn: '7d'
+  # 令牌有效期（单位：秒）
+  expiresIn: 604800
