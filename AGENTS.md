@@ -9,9 +9,11 @@ NestJS 11 企业级实践项目 —— TypeORM + MySQL + Pino 日志 + 统一错
 - **包管理**: pnpm
 - **测试**: Jest 30 + ts-jest + supertest（E2E）
 - **代码规范**: ESLint 9 flat config + Prettier 3
+- **Git 钩子**: husky + lint-staged（pre-commit 自动 lint + test）
 - **数据库**: MySQL 8 + TypeORM 1.1（`autoLoadEntities`，开发环境 `synchronize` 自动同步）
 - **日志**: Pino + nestjs-pino（开发期 pino-pretty 可读输出，生产 JSON 轮转归档）
 - **配置**: YAML 文件（`config.yaml`），通过 `@nestjs/config` + `js-yaml` 加载
+- **认证**: JWT（@nestjs/jwt + passport-jwt）
 
 ## 常用命令
 
@@ -27,44 +29,20 @@ pnpm test:e2e         # 运行 E2E 测试（*.e2e-spec.ts，配置 test/jest-e2e
 pnpm test:cov         # 运行测试并生成覆盖率报告
 pnpm seed             # 创建初始用户（admin@example.com / 123456）
 pnpm clean            # 清空 node_modules + lock 文件
+git commit            # 经 husky 自动执行 lint + test（pre-commit）
 ```
 
 ## 架构
 
 ```
 src/
-├── main.ts                         # 入口：NestFactory 启动，挂载进程钩子
-├── app/
-│   ├── app.module.ts               # 根模块，引入所有子模块
-│   ├── app.controller.ts           # GET /
-│   └── app.service.ts
-├── config/
-│   └── config.module.ts            # YAML 配置加载（@nestjs/config + js-yaml，全局）
-├── database/
-│   ├── database.module.ts          # TypeORM 异步配置（ConfigService 注入）
-│   └── seed.ts                     # 初始用户播种脚本（bcryptjs 加密密码）
-├── common/
-│   ├── types.ts                    # ResponseBody<T> 统一响应体接口
-│   ├── errors/
-│   │   ├── errors.module.ts        # 全局 APP_FILTER + ErrorHandler 提供
-│   │   ├── app-error.ts            # 唯一错误模型（code 属性区分，不建子类）
-│   │   ├── error-codes.ts          # 错误码常量（BIZ_ERROR: -1）
-│   │   ├── error-handler.ts        # 集中错误处理器（可信度/分层日志/优雅退出）
-│   │   └── all-exceptions.filter.ts# 全局异常过滤器（转发至 ErrorHandler）
-│   ├── interceptors/
-│   │   └── transform.interceptor.ts# 成功响应统一包裹 { code:0, message:'ok', data }
-│   └── logging/
-│       └── logging.module.ts       # Pino 结构化日志（请求ID/串化/轮转归档）
-└── users/
-    ├── users.module.ts             # 用户功能模块
-    ├── user.entity.ts              # TypeORM 实体（users 表，软删除 delFlag）
-    ├── users.controller.ts         # GET /users/:id
-    ├── users.service.ts            # findById（含业务错误抛出）
-    ├── users.service.spec.ts       # 单元测试
-    ├── users.e2e-spec.ts           # E2E 测试（与本模块同目录存放）
-    └── dto/
-        ├── create-user.dto.ts      # 创建用户 DTO（class-validator 中文校验消息）
-        └── update-user.dto.ts      # 更新用户 DTO
+├── main.ts                 # 入口
+├── app/                    # 根模块
+├── config/                 # YAML 配置加载
+├── database/               # TypeORM + MySQL
+├── common/                 # 统一错误处理、响应拦截、Pino 日志
+├── users/                  # 用户 CRUD（User 实体含 delFlag 软删除）
+└── auth/                   # JWT 登录/注册（@nestjs/jwt + passport-jwt）
 ```
 
 ## 约定
@@ -97,6 +75,19 @@ src/
 - ESLint 类型检查规则（`recommendedTypeChecked`）+ `projectService: true`
 - 参数校验：`ValidationPipe({ whitelist: true })` + class-validator 装饰器，校验消息用中文
 - 文件组织：单元测试 `*.spec.ts` 与被测文件同目录；E2E 测试 `*.e2e-spec.ts` 可在任意目录（由 `testRegex` 匹配）
+- husky pre-commit 自动运行 `pnpm lint` + `pnpm test`，不通过不能提交
+
+### Commit 规范
+- 格式：`<type>: <subject>`，subject 不超过 100 字符
+- type 必须为以下之一：`feat` `fix` `ui` `util` `style` `refactor` `docs` `test` `chore` `add` `del` `revert` `release` `deploy` `init`
+- husky commit-msg 钩子校验格式，不符合则阻止提交
+
+### JWT 认证
+- 使用 `@nestjs/jwt` 签发 token，`passport-jwt` 策略验证
+- token payload 仅含 `{ sub: userId, email }`，不存敏感数据
+- 登录接口 `POST /auth/login_email` 返回 `{ access_token, user }`（user 不含 password）
+- `config.yaml` 的 `jwt.expiresIn` 为数字秒数（如 604800 = 7天）
+- 注册接口 `POST /auth/register` 字段：nickname + email + password
 
 ## Notes
 
