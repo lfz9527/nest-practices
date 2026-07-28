@@ -21,4 +21,14 @@ export class UsersService {
     }
     return user
   }
+
+  async findByEmail(email: string): Promise<User> {
+    const user = await this.userRepo.findOne({
+      where: { email, delFlag: 0 },
+    })
+    if (!user) {
+      throw new AppError(ErrorCodes.BIZ_ERROR, '用户不存在')
+    }
+    return user
+  }
 }

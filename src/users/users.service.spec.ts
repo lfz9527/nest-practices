@@ -30,4 +30,23 @@ describe('UsersService', () => {
       message: '用户 999 不存在',
     })
   })
+
+  describe('findByEmail', () => {
+    it('应通过邮箱查询用户', async () => {
+      const mockUser = { id: 1, email: 'test@example.com' }
+      userRepo.findOne.mockResolvedValue(mockUser)
+
+      const result = await service.findByEmail('test@example.com')
+      expect(result).toEqual(mockUser)
+      expect(userRepo.findOne).toHaveBeenCalledWith({
+        where: { email: 'test@example.com', delFlag: 0 },
+      })
+    })
+
+    it('邮箱不存在应抛 AppError', async () => {
+      userRepo.findOne.mockResolvedValue(null)
+
+      await expect(service.findByEmail('no@exists.com')).rejects.toThrow(AppError)
+    })
+  })
 })
