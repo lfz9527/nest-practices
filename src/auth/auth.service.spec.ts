@@ -4,7 +4,14 @@ import { JwtService } from '@nestjs/jwt'
 import { AuthService } from './auth.service'
 import { User } from '../users/user.entity'
 import { AppError } from '../common/errors/app-error'
+
+jest.mock('bcryptjs', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+}))
+
 import * as bcryptjs from 'bcryptjs'
+const mockedBcrypt = bcryptjs as jest.Mocked<typeof bcryptjs>
 
 describe('AuthService', () => {
   let service: AuthService
@@ -54,7 +61,7 @@ describe('AuthService', () => {
 
     it('应成功登录并返回 access_token 和用户信息', async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser)
-      jest.spyOn(bcryptjs, 'compare').mockResolvedValue(true as never)
+      mockedBcrypt.compare.mockResolvedValue(true as never)
 
       const result = await service.login(loginDto, '127.0.0.1')
 
@@ -89,7 +96,7 @@ describe('AuthService', () => {
 
     it('密码错误应抛 AppError', async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser)
-      jest.spyOn(bcryptjs, 'compare').mockResolvedValue(false as never)
+      mockedBcrypt.compare.mockResolvedValue(false as never)
 
       await expect(service.login(loginDto, '')).rejects.toThrow(AppError)
       await expect(service.login(loginDto, '')).rejects.toThrow('账号或密码错误')
