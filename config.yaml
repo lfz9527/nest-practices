@@ -27,3 +27,8 @@ logger:
     enabled: true
     path: ./logs
     maxSize: 10        # MB
+
+# JWT 配置
+jwt:
+  secret: 'nest-practices-secret-key'
+  expiresIn: '7d'
