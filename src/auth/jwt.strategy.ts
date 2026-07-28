@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('用户不存在或已被删除')
     }
     if (payload.ver !== user.tokenVersion) {
-      throw new UnauthorizedException('token 已失效，请重新登录')
+      throw new UnauthorizedException('当前登录状态已失效，请重新登录')
     }
     return user
   }

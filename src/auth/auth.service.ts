@@ -47,7 +47,7 @@ export class AuthService {
     const access_token = this.jwtService.sign({
       sub: user.id,
       email: user.email,
-      ver: user.tokenVersion,
+      ver: user.tokenVersion as number,
     })
 
     const { password: _, ...userWithoutPassword } = user
