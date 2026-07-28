@@ -55,6 +55,7 @@ describe('AuthService', () => {
       lastLoginIp: '',
       lastLoginTime: null,
       remark: '',
+      tokenVersion: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -78,6 +79,7 @@ describe('AuthService', () => {
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         sub: 1,
         email: 'test@example.com',
+        ver: 0,
       })
     })
 

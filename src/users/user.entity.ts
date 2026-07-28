@@ -49,6 +49,13 @@ export class User {
   @Column({ type: 'varchar', length: 255, default: '' })
   remark!: string
 
+  @Column({
+    type: 'int',
+    default: 0,
+    comment: 'token 版本号，用于令旧 token 失效',
+  })
+  tokenVersion!: number
+
   @CreateDateColumn({ type: 'datetime' })
   createdAt!: Date
 

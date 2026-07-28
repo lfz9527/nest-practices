@@ -20,12 +20,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     })
   }
 
-  async validate(payload: { sub: number }): Promise<User> {
+  async validate(payload: { sub: number; ver: number }): Promise<User> {
     const user = await this.userRepo.findOne({
       where: { id: payload.sub, delFlag: 0 },
     })
     if (!user) {
       throw new UnauthorizedException('用户不存在或已被删除')
+    }
+    if (payload.ver !== user.tokenVersion) {
+      throw new UnauthorizedException('token 已失效，请重新登录')
     }
     return user
   }
