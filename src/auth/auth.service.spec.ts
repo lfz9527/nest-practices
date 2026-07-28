@@ -69,9 +69,10 @@ describe('AuthService', () => {
       expect(result.user).toBeDefined()
       expect(result.user?.id).toBe(1)
       expect(result.user?.email).toBe('test@example.com')
-      expect((result.user as any)?.password).toBeUndefined()
+      expect(result.user).not.toHaveProperty('password')
       expect(mockUserRepo.update).toHaveBeenCalledWith(1, {
         lastLoginIp: '127.0.0.1',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         lastLoginTime: expect.any(Date),
       })
       expect(mockJwtService.sign).toHaveBeenCalledWith({
@@ -84,7 +85,9 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(null)
 
       await expect(service.login(loginDto, '')).rejects.toThrow(AppError)
-      await expect(service.login(loginDto, '')).rejects.toThrow('账号或密码错误')
+      await expect(service.login(loginDto, '')).rejects.toThrow(
+        '账号或密码错误',
+      )
     })
 
     it('账号已停用应抛 AppError', async () => {
@@ -99,12 +102,18 @@ describe('AuthService', () => {
       mockedBcrypt.compare.mockResolvedValue(false as never)
 
       await expect(service.login(loginDto, '')).rejects.toThrow(AppError)
-      await expect(service.login(loginDto, '')).rejects.toThrow('账号或密码错误')
+      await expect(service.login(loginDto, '')).rejects.toThrow(
+        '账号或密码错误',
+      )
     })
   })
 
   describe('register', () => {
-    const registerDto = { nickname: 'newuser', email: 'new@example.com', password: '123456' }
+    const registerDto = {
+      nickname: 'newuser',
+      email: 'new@example.com',
+      password: '123456',
+    }
     const savedUser = { id: 2, nickname: 'newuser', email: 'new@example.com' }
 
     it('应成功注册并返回用户信息', async () => {
@@ -114,7 +123,11 @@ describe('AuthService', () => {
 
       const result = await service.register(registerDto)
 
-      expect(result).toEqual({ id: 2, nickname: 'newuser', email: 'new@example.com' })
+      expect(result).toEqual({
+        id: 2,
+        nickname: 'newuser',
+        email: 'new@example.com',
+      })
       expect(mockUserRepo.create).toHaveBeenCalled()
       expect(mockUserRepo.save).toHaveBeenCalled()
     })
@@ -123,7 +136,9 @@ describe('AuthService', () => {
       mockUserRepo.findOne.mockResolvedValue(savedUser)
 
       await expect(service.register(registerDto)).rejects.toThrow(AppError)
-      await expect(service.register(registerDto)).rejects.toThrow('该邮箱已注册')
+      await expect(service.register(registerDto)).rejects.toThrow(
+        '该邮箱已注册',
+      )
     })
   })
 })

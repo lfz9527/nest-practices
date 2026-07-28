@@ -17,19 +17,14 @@ export class AuthController {
 
   @Post('login_email')
   @HttpCode(200)
-  async login(
-    @Body(ValidationPipe) loginDto: LoginDto,
-    @Req() req: Request,
-  ) {
+  async login(@Body(ValidationPipe) loginDto: LoginDto, @Req() req: Request) {
     const ip = req.ip ?? req.socket.remoteAddress ?? ''
     return this.authService.login(loginDto, ip)
   }
 
   @Post('register')
   @HttpCode(200)
-  async register(
-    @Body(ValidationPipe) registerDto: RegisterDto,
-  ) {
+  async register(@Body(ValidationPipe) registerDto: RegisterDto) {
     return this.authService.register(registerDto)
   }
 }

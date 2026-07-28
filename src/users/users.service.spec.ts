@@ -46,7 +46,9 @@ describe('UsersService', () => {
     it('邮箱不存在应抛 AppError', async () => {
       userRepo.findOne.mockResolvedValue(null)
 
-      await expect(service.findByEmail('no@exists.com')).rejects.toThrow(AppError)
+      await expect(service.findByEmail('no@exists.com')).rejects.toThrow(
+        AppError,
+      )
     })
   })
 })

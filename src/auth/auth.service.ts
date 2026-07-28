@@ -50,6 +50,7 @@ export class AuthService {
     })
 
     const { password: _, ...userWithoutPassword } = user
+    void _
     return { access_token, user: userWithoutPassword }
   }
 
