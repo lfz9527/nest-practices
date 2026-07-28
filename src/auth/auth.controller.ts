@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Req,
+  HttpCode,
   ValidationPipe,
 } from '@nestjs/common'
 import { AuthService } from './auth.service'
@@ -15,6 +16,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login_email')
+  @HttpCode(200)
   async login(
     @Body(ValidationPipe) loginDto: LoginDto,
     @Req() req: Request,
@@ -24,6 +26,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @HttpCode(200)
   async register(
     @Body(ValidationPipe) registerDto: RegisterDto,
   ) {
