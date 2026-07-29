@@ -7,7 +7,7 @@ if (platform() === 'win32') {
   process.stdout.setDefaultEncoding('utf-8')
 }
 
-import { ValidationPipe } from '@nestjs/common'
+import { ValidationPipe, Logger as NestLogger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { Logger } from 'nestjs-pino'
@@ -18,7 +18,8 @@ async function bootstrap() {
   // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    logger: false,
+    // false → 回退日志器：启动失败时缓冲的日志刷新到此输出，不再被吞
+    logger: new NestLogger('Bootstrap', { timestamp: false }),
     cors: false,
   })
   const logger = app.get(Logger)
