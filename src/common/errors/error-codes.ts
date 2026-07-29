@@ -8,4 +8,6 @@ export const UNKNOWN_HTTP_CODE = 500
 export const ErrorCodes = {
   // 默认错误码
   BIZ_ERROR: -1,
+  // 未登录或登录状态过期
+  UNAUTHORIZED: 401,
 } as const
