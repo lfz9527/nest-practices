@@ -1,16 +1,24 @@
 import { Injectable, OnApplicationShutdown } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Redis from 'ioredis'
+import { Logger } from 'nestjs-pino'
 
 @Injectable()
 export class RedisService implements OnApplicationShutdown {
   private readonly client: Redis
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly logger: Logger,
+  ) {
     this.client = new Redis({
       host: configService.get<string>('redis.host'),
       port: configService.get<number>('redis.port'),
       password: configService.get<string>('redis.password') || undefined,
+    })
+    // 未捕获的 error 事件会让 ioredis 抛出导致进程崩溃，必须监听
+    this.client.on('error', (err) => {
+      this.logger.error({ msg: 'Redis 连接错误', err })
     })
   }
 

@@ -1,26 +1,34 @@
 import { Test } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
 import Redis from 'ioredis'
+import { Logger } from 'nestjs-pino'
 import { RedisService } from './redis.service'
 
 jest.mock('ioredis')
+
+const loggerMock = { error: jest.fn() }
 
 const mockClient = {
   get: jest.fn(),
   set: jest.fn(),
   del: jest.fn(),
   quit: jest.fn(),
+  on: jest.fn(),
 }
 
 describe('RedisService', () => {
   let service: RedisService
   let client: typeof mockClient
+  // 构造器注册的 error 事件回调，在 beforeAll 时捕获（afterEach 会清空 mock 调用记录）
+  let redisErrorEvent: string
+  let redisErrorHandler: (err: Error) => void
 
   beforeAll(async () => {
     ;(Redis as jest.Mock).mockImplementation(() => mockClient)
     const moduleRef = await Test.createTestingModule({
       providers: [
         RedisService,
+        { provide: Logger, useValue: loggerMock },
         {
           provide: ConfigService,
           useValue: {
@@ -36,6 +44,12 @@ describe('RedisService', () => {
     }).compile()
     service = moduleRef.get(RedisService)
     client = mockClient
+    const [event, handler] = client.on.mock.calls[0] as [
+      string,
+      (err: Error) => void,
+    ]
+    redisErrorEvent = event
+    redisErrorHandler = handler
   })
 
   afterEach(() => {
@@ -64,5 +78,13 @@ describe('RedisService', () => {
     client.del.mockResolvedValue(1)
     await service.del('k')
     expect(client.del).toHaveBeenCalledWith('k')
+  })
+
+  it('Redis error 事件被监听并记录日志', () => {
+    expect(redisErrorEvent).toBe('error')
+    redisErrorHandler(new Error('connection refused'))
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      expect.objectContaining({ msg: 'Redis 连接错误' }),
+    )
   })
 })
