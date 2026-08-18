@@ -13,6 +13,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('jwt.secret')!,
+      // 显式固定签名算法，防止算法混淆攻击（jwt algorithm confusion）
+      algorithms: ['HS256'],
     })
   }
 
