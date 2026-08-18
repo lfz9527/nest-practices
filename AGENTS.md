@@ -94,7 +94,3 @@ src/
 - 全局守卫 `JwtAuthGuard`：未标 `@Public()` 的接口需 `Authorization: Bearer <access>`；401 只代表当前 token 失效，走业务错误形态（HTTP 200 + body.code 401，AppError(UNAUTHORIZED)）
 - 登录失败统一文案「账号或密码错误」（不暴露账号状态）；status=1 抛「账号已被停用」
 - 开发环境 Redis：WSL 内 Redis（密码 root，监听 0.0.0.0），`pnpm redis:link` 配置 portproxy 后连 127.0.0.1:6379
-
-## Notes
-
-<!-- 快速记录区 -->
