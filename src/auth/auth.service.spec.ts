@@ -5,7 +5,11 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { hash } from 'bcryptjs'
 import { User } from '../users/user.entity'
 import { RedisService } from '../redis/redis.service'
-import { AuthService, SESSION_KEY_PREFIX } from './auth.service'
+import {
+  AccessTokenPayload,
+  AuthService,
+  SESSION_KEY_PREFIX,
+} from './auth.service'
 
 const redisMock = {
   get: jest.fn(),
@@ -88,7 +92,11 @@ describe('AuthService', () => {
       }),
       expect.anything(),
     )
-    const payload = jwtMock.signAsync.mock.calls[0][0]
+    const signCalls = jwtMock.signAsync.mock.calls as Array<
+      [AccessTokenPayload, ...unknown[]]
+    >
+    const payload = signCalls[0][0]
+
     expect(redisMock.set).toHaveBeenCalledWith(
       `${SESSION_KEY_PREFIX}1:${payload.sessionId}`,
       payload.jti,
@@ -117,8 +125,11 @@ describe('AuthService', () => {
       '127.0.0.1',
     )
 
-    const firstPayload = jwtMock.signAsync.mock.calls[0][0]
-    const secondPayload = jwtMock.signAsync.mock.calls[1][0]
+    const signCalls = jwtMock.signAsync.mock.calls as Array<
+      [AccessTokenPayload, ...unknown[]]
+    >
+    const firstPayload = signCalls[0][0]
+    const secondPayload = signCalls[1][0]
     expect(firstPayload.sessionId).not.toBe(secondPayload.sessionId)
     expect(firstPayload.jti).not.toBe(secondPayload.jti)
     expect(redisMock.set).toHaveBeenNthCalledWith(

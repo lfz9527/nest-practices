@@ -55,11 +55,13 @@ describe('认证 E2E', () => {
     redisMock.set.mockClear()
     redisMock.del.mockClear()
     sessionJtis.clear()
-    redisMock.get.mockImplementation(async (key: string) => sessionJtis.get(key) ?? null)
-    redisMock.set.mockImplementation(async (key: string, value: string) => {
+    redisMock.get.mockImplementation(
+      (key: string) => sessionJtis.get(key) ?? null,
+    )
+    redisMock.set.mockImplementation((key: string, value: string) => {
       sessionJtis.set(key, value)
     })
-    redisMock.del.mockImplementation(async (key: string) => {
+    redisMock.del.mockImplementation((key: string) => {
       sessionJtis.delete(key)
     })
   })
