@@ -145,9 +145,10 @@ describe('认证 E2E', () => {
     capturedJti = (redisMock.set.mock.calls[0] as [string, string])[1]
   })
 
-  it('未登录访问受保护接口：401', async () => {
+  it('未登录访问受保护接口：业务错误形态 401', async () => {
     const res = await request(httpServer).get('/home')
-    expect(res.status).toBe(401)
+    // 守卫抛 AppError → 业务错误形态：HTTP 200 + body.code 401
+    expect(res.status).toBe(200)
     expect((res.body as { code: number }).code).toBe(401)
   })
 
@@ -167,13 +168,12 @@ describe('认证 E2E', () => {
     expect((res.body as { code: number }).code).toBe(0)
   })
 
-  it('刷新：携带 refresh cookie 换新 access', async () => {
+  it('刷新：携带 refresh cookie 换新 access 并轮换 refresh cookie', async () => {
     const loginRes = await agent.post('/auth/login').send({
       email: 'admin@example.com',
       password: '123456',
     })
-    const oldAccess = (loginRes.body as { data: { access_token: string } }).data
-      .access_token
+    const oldRefreshToken = refreshTokenFrom(loginRes)
     // 本次登录刚写入的 jti 才与 cookie 中 refresh token 的载荷匹配
     capturedJti = (redisMock.set.mock.calls[0] as [string, string])[1]
     redisMock.get.mockResolvedValue(capturedJti)
@@ -182,6 +182,68 @@ describe('认证 E2E', () => {
     expect(res.status).toBe(200)
     const data = (res.body as { data: { access_token: string } }).data
     expect(data.access_token).toEqual(expect.any(String))
-    expect(data.access_token).not.toBe(oldAccess)
+    // 轮换后的 refresh cookie 必然不同（新 jti 为随机 UUID）
+    expect(refreshTokenFrom(res)).not.toBe(oldRefreshToken)
+  })
+
+  // 从登录响应 Set-Cookie 中解析 refresh token 值（用于模拟旧 cookie 重放）
+  const refreshTokenFrom = (res: {
+    headers: { 'set-cookie'?: string[] }
+  }): string => {
+    const setCookie = (res.headers['set-cookie'] as unknown as string[]).find(
+      (c) => c.startsWith('refresh='),
+    )!
+    return setCookie.split(';')[0].slice('refresh='.length)
+  }
+
+  it('刷新重放：轮换后旧 refresh cookie 再发一次被拒绝（jti 不匹配）', async () => {
+    userRepo.findOne.mockResolvedValue(mockUser())
+    userRepo.update.mockResolvedValue({ affected: 1 })
+    const loginRes = await agent.post('/auth/login').send({
+      email: 'admin@example.com',
+      password: '123456',
+    })
+    const oldRefreshToken = refreshTokenFrom(loginRes)
+    // 登录写入的 jti 即旧 refresh token 载荷中的 jti
+    const jti1 = (redisMock.set.mock.calls[0] as [string, string])[1]
+    redisMock.get.mockResolvedValue(jti1)
+
+    // 第一次刷新成功，agent cookie 轮换为新 token，Redis 写入新 jti
+    const first = await agent.post('/auth/refresh')
+    expect(first.status).toBe(200)
+    const jti2 = (redisMock.set.mock.calls[1] as [string, string])[1]
+    redisMock.get.mockResolvedValue(jti2)
+
+    // 手动用旧 cookie 再发一次：payload 仍是 jti1，Redis 已是 jti2 → 401
+    const replay = await request(httpServer)
+      .post('/auth/refresh')
+      .set('Cookie', `refresh=${oldRefreshToken}`)
+    expect(replay.status).toBe(200)
+    expect((replay.body as { code: number }).code).toBe(401)
+  })
+
+  it('登出后：用旧 refresh cookie 刷新被拒绝（Redis 无 jti）', async () => {
+    userRepo.findOne.mockResolvedValue(mockUser())
+    userRepo.update.mockResolvedValue({ affected: 1 })
+    const loginRes = await agent.post('/auth/login').send({
+      email: 'admin@example.com',
+      password: '123456',
+    })
+    const oldRefreshToken = refreshTokenFrom(loginRes)
+    const accessToken = (loginRes.body as { data: { access_token: string } })
+      .data.access_token
+
+    const logoutRes = await agent
+      .post('/auth/logout')
+      .set('Authorization', `Bearer ${accessToken}`)
+    expect(logoutRes.status).toBe(200)
+
+    // 登出后 Redis 已无该会话 jti
+    redisMock.get.mockResolvedValue(null)
+    const replay = await request(httpServer)
+      .post('/auth/refresh')
+      .set('Cookie', `refresh=${oldRefreshToken}`)
+    expect(replay.status).toBe(200)
+    expect((replay.body as { code: number }).code).toBe(401)
   })
 })
