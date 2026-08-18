@@ -38,7 +38,5 @@ redis:
 jwt:
   # 签名密钥（生产环境应通过环境变量注入，勿硬编码）
   secret: 'nest-practices-secret-key'
-  # access token 有效期（单位：秒）
-  accessExpiresIn: 1800
-  # refresh token 有效期（单位：秒）
-  refreshExpiresIn: 604800
+  # access token 有效期（单位：秒，7 天）
+  accessExpiresIn: 604800

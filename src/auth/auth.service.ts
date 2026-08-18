@@ -11,20 +11,15 @@ import { RedisService } from '../redis/redis.service'
 import { User } from '../users/user.entity'
 import { LoginDto } from './dto/login.dto'
 
-// refresh token 在 Redis 中的 key 前缀（单端登录：同 userId 只存最新 jti）
-export const REFRESH_KEY_PREFIX = 'auth:refresh:'
+// 会话在 Redis 中的 key 前缀（单端登录：同 userId 只存最新 jti，覆盖即顶号）
+export const SESSION_KEY_PREFIX = 'auth:session:'
 
 // access token 载荷
 export interface AccessTokenPayload {
   sub: number
   email: string
-  type: 'access'
-}
-
-// refresh token 载荷
-interface RefreshTokenPayload {
-  sub: number
   jti: string
+  type: 'access'
 }
 
 @Injectable()
@@ -52,14 +47,13 @@ export class AuthService {
       throw new AppError(ErrorCodes.BIZ_ERROR, '账号或密码错误')
     }
 
-    const refreshJti = randomUUID()
-    const accessToken = await this.signAccess(user.id, user.email)
-    const refreshToken = await this.signRefresh(user.id, refreshJti)
-    // 覆盖写入即实现单端登录：旧会话 refresh 立即失效
+    const jti = randomUUID()
+    const accessToken = await this.signAccess(user.id, user.email, jti)
+    // 覆盖写入即实现单端登录：旧会话 token 的 jti 与 Redis 不一致即被顶号
     await this.redisService.set(
-      `${REFRESH_KEY_PREFIX}${user.id}`,
-      refreshJti,
-      this.refreshExpiresIn(),
+      `${SESSION_KEY_PREFIX}${user.id}`,
+      jti,
+      this.accessExpiresIn(),
     )
     await this.userRepo.update(user.id, {
       lastLoginIp: ip,
@@ -68,71 +62,21 @@ export class AuthService {
 
     const { password: _password, ...userWithoutPassword } = user
     void _password
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user: userWithoutPassword,
-    }
-  }
-
-  async refresh(refreshToken: string) {
-    let payload: RefreshTokenPayload
-    try {
-      payload =
-        await this.jwtService.verifyAsync<RefreshTokenPayload>(refreshToken)
-    } catch {
-      throw new AppError(ErrorCodes.UNAUTHORIZED, '登录状态已失效，请重新登录')
-    }
-
-    // 刷新时查库确认用户仍存在且未停用，并从库中取最新 email
-    const user = await this.userRepo.findOne({
-      where: { id: payload.sub, delFlag: 0 },
-    })
-    if (!user || user.status === 1) {
-      throw new AppError(ErrorCodes.UNAUTHORIZED, '登录状态已失效，请重新登录')
-    }
-
-    const storedJti = await this.redisService.get(
-      `${REFRESH_KEY_PREFIX}${payload.sub}`,
-    )
-    if (storedJti !== payload.jti) {
-      // 已被顶号、已登出或旧 token 重放
-      throw new AppError(ErrorCodes.UNAUTHORIZED, '登录状态已失效，请重新登录')
-    }
-
-    // 轮换：删旧 jti，签发新 refresh
-    const newJti = randomUUID()
-    await this.redisService.del(`${REFRESH_KEY_PREFIX}${payload.sub}`)
-    const accessToken = await this.signAccess(payload.sub, user.email)
-    const newRefreshToken = await this.signRefresh(payload.sub, newJti)
-    await this.redisService.set(
-      `${REFRESH_KEY_PREFIX}${payload.sub}`,
-      newJti,
-      this.refreshExpiresIn(),
-    )
-
-    return { access_token: accessToken, refresh_token: newRefreshToken }
+    return { access_token: accessToken, user: userWithoutPassword }
   }
 
   async logout(userId: number): Promise<void> {
-    await this.redisService.del(`${REFRESH_KEY_PREFIX}${userId}`)
+    await this.redisService.del(`${SESSION_KEY_PREFIX}${userId}`)
   }
 
-  private signAccess(sub: number, email: string): Promise<string> {
+  private signAccess(sub: number, email: string, jti: string): Promise<string> {
     return this.jwtService.signAsync(
-      { sub, email, type: 'access' } satisfies AccessTokenPayload,
+      { sub, email, jti, type: 'access' } satisfies AccessTokenPayload,
       { expiresIn: this.configService.get<number>('jwt.accessExpiresIn') },
     )
   }
 
-  private signRefresh(sub: number, jti: string): Promise<string> {
-    return this.jwtService.signAsync(
-      { sub, jti } satisfies RefreshTokenPayload,
-      { expiresIn: this.configService.get<number>('jwt.refreshExpiresIn') },
-    )
-  }
-
-  private refreshExpiresIn(): number {
-    return this.configService.get<number>('jwt.refreshExpiresIn')!
+  private accessExpiresIn(): number {
+    return this.configService.get<number>('jwt.accessExpiresIn')!
   }
 }

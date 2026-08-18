@@ -5,8 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { hash } from 'bcryptjs'
 import { User } from '../users/user.entity'
 import { RedisService } from '../redis/redis.service'
-import { AppError } from '../common/errors/app-error'
-import { AuthService, REFRESH_KEY_PREFIX } from './auth.service'
+import { AuthService, SESSION_KEY_PREFIX } from './auth.service'
 
 const redisMock = {
   get: jest.fn(),
@@ -16,7 +15,6 @@ const redisMock = {
 
 const jwtMock = {
   signAsync: jest.fn(),
-  verifyAsync: jest.fn(),
 }
 
 const userRepoMock = {
@@ -27,8 +25,7 @@ const userRepoMock = {
 const configMock = {
   get: (key: string) =>
     ({
-      'jwt.accessExpiresIn': 1800,
-      'jwt.refreshExpiresIn': 604800,
+      'jwt.accessExpiresIn': 604800,
     })[key],
 }
 
@@ -67,11 +64,9 @@ describe('AuthService', () => {
       ...overrides,
     }) as User
 
-  it('登录成功：签发双 token、refresh jti 写入 Redis、更新登录信息', async () => {
+  it('登录成功：签发单 access token、jti 写入 Redis 会话、更新登录信息', async () => {
     userRepoMock.findOne.mockResolvedValue(buildUser())
-    jwtMock.signAsync
-      .mockResolvedValueOnce('access-token')
-      .mockResolvedValueOnce('refresh-token')
+    jwtMock.signAsync.mockResolvedValue('access-token')
     redisMock.set.mockResolvedValue(undefined)
     userRepoMock.update.mockResolvedValue({ affected: 1 })
 
@@ -81,10 +76,19 @@ describe('AuthService', () => {
     )
 
     expect(result.access_token).toBe('access-token')
-    expect(result.refresh_token).toBe('refresh-token')
+    expect(result).not.toHaveProperty('refresh_token')
     expect(result.user).not.toHaveProperty('password')
+    // 载荷携带 jti 供守卫比对
+    expect(jwtMock.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: 1,
+        email: 'admin@example.com',
+        jti: expect.any(String) as string,
+      }),
+      expect.anything(),
+    )
     expect(redisMock.set).toHaveBeenCalledWith(
-      `${REFRESH_KEY_PREFIX}1`,
+      `${SESSION_KEY_PREFIX}1`,
       expect.any(String),
       604800,
     )
@@ -116,75 +120,9 @@ describe('AuthService', () => {
     ).rejects.toMatchObject({ code: -1, message: '账号已被停用' })
   })
 
-  it('刷新成功：查库确认用户、jti 一致则轮换并签发新双 token（access 用库中 email）', async () => {
-    jwtMock.verifyAsync.mockResolvedValue({ sub: 1, jti: 'jti-1' })
-    userRepoMock.findOne.mockResolvedValue(buildUser())
-    redisMock.get.mockResolvedValue('jti-1')
-    jwtMock.signAsync
-      .mockResolvedValueOnce('new-access')
-      .mockResolvedValueOnce('new-refresh')
-    redisMock.set.mockResolvedValue(undefined)
-
-    const result = await service.refresh('refresh-token')
-
-    expect(userRepoMock.findOne).toHaveBeenCalledWith({
-      where: { id: 1, delFlag: 0 },
-    })
-    expect(jwtMock.signAsync).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ sub: 1, email: 'admin@example.com' }),
-      expect.anything(),
-    )
-    expect(result).toEqual({
-      access_token: 'new-access',
-      refresh_token: 'new-refresh',
-    })
-    expect(redisMock.del).toHaveBeenCalledWith(`${REFRESH_KEY_PREFIX}1`)
-    expect(redisMock.set).toHaveBeenCalledWith(
-      `${REFRESH_KEY_PREFIX}1`,
-      expect.any(String),
-      604800,
-    )
-  })
-
-  it('刷新失败：用户不存在抛 401', async () => {
-    jwtMock.verifyAsync.mockResolvedValue({ sub: 1, jti: 'jti-1' })
-    userRepoMock.findOne.mockResolvedValue(null)
-    await expect(service.refresh('refresh-token')).rejects.toMatchObject({
-      code: 401,
-    })
-    expect(redisMock.get).not.toHaveBeenCalled()
-  })
-
-  it('刷新失败：用户已停用（status=1）抛 401', async () => {
-    jwtMock.verifyAsync.mockResolvedValue({ sub: 1, jti: 'jti-1' })
-    userRepoMock.findOne.mockResolvedValue(buildUser({ status: 1 }))
-    await expect(service.refresh('refresh-token')).rejects.toMatchObject({
-      code: 401,
-    })
-    expect(redisMock.get).not.toHaveBeenCalled()
-  })
-
-  it('刷新失败：jti 与 Redis 不一致（已顶号/已轮换）抛 401', async () => {
-    jwtMock.verifyAsync.mockResolvedValue({ sub: 1, jti: 'old-jti' })
-    userRepoMock.findOne.mockResolvedValue(buildUser())
-    redisMock.get.mockResolvedValue('new-jti')
-    await expect(service.refresh('refresh-token')).rejects.toMatchObject({
-      code: 401,
-    })
-    expect(redisMock.del).not.toHaveBeenCalled()
-  })
-
-  it('刷新失败：refresh token 无效抛 401', async () => {
-    jwtMock.verifyAsync.mockRejectedValue(new Error('invalid token'))
-    await expect(service.refresh('bad-token')).rejects.toMatchObject({
-      code: 401,
-    })
-  })
-
-  it('登出：删除 Redis 中的 refresh jti', async () => {
+  it('登出：删除 Redis 中的会话 jti', async () => {
     redisMock.del.mockResolvedValue(1)
     await service.logout(1)
-    expect(redisMock.del).toHaveBeenCalledWith(`${REFRESH_KEY_PREFIX}1`)
+    expect(redisMock.del).toHaveBeenCalledWith(`${SESSION_KEY_PREFIX}1`)
   })
 })

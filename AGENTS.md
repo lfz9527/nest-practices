@@ -13,7 +13,7 @@ NestJS 11 企业级实践项目 —— TypeORM + MySQL + Pino 日志 + 统一错
 - **数据库**: MySQL 8 + TypeORM 1.1（`autoLoadEntities`，开发环境 `synchronize` 自动同步）
 - **日志**: Pino + nestjs-pino（开发期 pino-pretty 可读输出，生产 JSON 轮转归档）
 - **配置**: YAML 文件（`config.yaml`），通过 `@nestjs/config` + `js-yaml` 加载
-- **认证**: JWT 双 token——access 无状态（30 分钟，只验签名）+ refresh 存 Redis（7 天，可轮换/主动失效）
+- **认证**: JWT 单 token（7 天）+ Redis 会话校验（单端顶号、登出即时失效，无 refresh 续期）
 - **Redis**: ioredis（开发环境：WSL 内 Redis，Windows 经 portproxy 访问 127.0.0.1:6379）
 
 ## 常用命令
@@ -86,11 +86,11 @@ src/
 - type 必须为以下之一：`feat` `fix` `ui` `util` `style` `refactor` `docs` `test` `chore` `add` `del` `revert` `release` `deploy` `init`
 - husky commit-msg 钩子校验格式，不符合则阻止提交
 
-### 认证（JWT access + refresh / Redis）
-- 接口：`POST /auth/login`、`POST /auth/refresh`、`POST /auth/logout`；login/refresh 标 `@Public()`，logout 走守卫
-- access payload `{ sub, email, type: 'access' }`（无状态，只验签名不查库）；refresh payload `{ sub, jti }`
-- refresh 存 Redis `auth:refresh:{userId}`（value=jti，TTL=refreshExpiresIn），单端登录靠同 key 覆盖顶号；刷新时轮换（DEL 旧 → SET 新），jti 不一致抛 401
-- refresh 放 httpOnly cookie（path=/auth/refresh，SameSite=Lax）；登出清 cookie + DEL Redis key
+### 认证（单 JWT + Redis 会话）
+- 接口：`POST /auth/login`、`POST /auth/logout`；login 标 `@Public()`，logout 走守卫（**无 refresh 接口**，token 过期前端直接重新登录）
+- access payload `{ sub, email, jti, type: 'access' }`，有效期 7 天（config `jwt.accessExpiresIn`）
+- 会话存 Redis `auth:session:{userId}`（value=jti，TTL=access 有效期），登录覆盖写即单端顶号；守卫每请求比对 Redis jti，不一致（顶号/登出）抛 401
+- 登出：DEL Redis key，该 token 立即失效
 - 全局守卫 `JwtAuthGuard`：未标 `@Public()` 的接口需 `Authorization: Bearer <access>`；401 走业务错误形态（HTTP 200 + body.code 401，AppError(UNAUTHORIZED)）
 - 登录失败统一文案「账号或密码错误」（不暴露账号状态）；status=1 抛「账号已被停用」
 - 开发环境 Redis：WSL 内 Redis（密码 root，监听 0.0.0.0），`pnpm redis:link` 配置 portproxy 后连 127.0.0.1:6379

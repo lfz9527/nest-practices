@@ -14,8 +14,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super()
   }
 
-  // passport 校验失败（无 token/过期/签名错误）时 err 存在；
-  // 统一抛 AppError 走业务错误形态（HTTP 200 + body.code 401），与 refresh 的 401 一致
+  // passport 校验失败（无 token/过期/签名错误/会话失效）时 err 存在；
+  // 统一抛 AppError 走业务错误形态（HTTP 200 + body.code 401）
   handleRequest<TUser = any>(err: any, user: any): TUser {
     if (err || !user) {
       throw new AppError(ErrorCodes.UNAUTHORIZED, '未登录或登录状态过期')
