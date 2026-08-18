@@ -53,4 +53,52 @@ describe('JwtAuthGuard', () => {
       },
     )
   })
+
+  it('JWT 会话 jti 匹配时放行', async () => {
+    const redisService = { get: jest.fn().mockResolvedValue('jti-1') }
+    const strategy = new JwtStrategy(
+      {
+        get: (key: string) =>
+          key === 'jwt.secret' ? 'test-secret' : undefined,
+      } as unknown as ConfigService,
+      redisService as unknown as RedisService,
+    )
+
+    await expect(
+      strategy.validate({
+        sub: 7,
+        email: 'a@b.com',
+        sessionId: 'session-1',
+        jti: 'jti-1',
+        type: 'access',
+      }),
+    ).resolves.toMatchObject({ sessionId: 'session-1' })
+    expect(redisService.get).toHaveBeenCalledWith(
+      'auth:session:7:session-1',
+    )
+  })
+
+  it.each([null, 'other-jti'])(
+    'JWT 会话缺失或 jti 不匹配时拒绝（Redis value: %s）',
+    async (storedJti) => {
+      const redisService = { get: jest.fn().mockResolvedValue(storedJti) }
+      const strategy = new JwtStrategy(
+        {
+          get: (key: string) =>
+            key === 'jwt.secret' ? 'test-secret' : undefined,
+        } as unknown as ConfigService,
+        redisService as unknown as RedisService,
+      )
+
+      await expect(
+        strategy.validate({
+          sub: 7,
+          email: 'a@b.com',
+          sessionId: 'session-1',
+          jti: 'jti-1',
+          type: 'access',
+        }),
+      ).rejects.toMatchObject({ code: 401, message: '未登录或登录状态过期' })
+    },
+  )
 })

@@ -39,8 +39,8 @@ describe('AuthController', () => {
 
   it('登出：调用 service.logout', async () => {
     authServiceMock.logout.mockResolvedValue(undefined)
-    const req = { user: { sub: 7 } }
+    const req = { user: { sub: 7, sessionId: 'session-7' } }
     await controller.logout(req as never)
-    expect(authServiceMock.logout).toHaveBeenCalledWith(7)
+    expect(authServiceMock.logout).toHaveBeenCalledWith(7, 'session-7')
   })
 })

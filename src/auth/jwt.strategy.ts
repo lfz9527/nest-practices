@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new AppError(ErrorCodes.UNAUTHORIZED, '令牌类型无效，请重新登录')
     }
     const storedJti = await this.redisService.get(
-      `${SESSION_KEY_PREFIX}${payload.sub}`,
+      `${SESSION_KEY_PREFIX}${payload.sub}:${payload.sessionId}`,
     )
     if (storedJti !== payload.jti) {
       // 已被顶号或已登出
