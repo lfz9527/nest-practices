@@ -10,7 +10,7 @@ if ! net session >/dev/null 2>&1; then
   exit 1
 fi
 
-WSLIP=$(wsl hostname -I | tr -d ' ' | awk '{print $1}')
+WSLIP=$(wsl hostname -I | awk '{print $1}')
 if [ -z "$WSLIP" ]; then
   echo "无法获取 WSL IP，请确认 WSL 已启动" >&2
   exit 1
