@@ -82,7 +82,13 @@ export class AuthService {
     jti: string,
   ): Promise<string> {
     return this.jwtService.signAsync(
-      { sub, email, sessionId, jti, type: 'access' } satisfies AccessTokenPayload,
+      {
+        sub,
+        email,
+        sessionId,
+        jti,
+        type: 'access',
+      } satisfies AccessTokenPayload,
       { expiresIn: this.configService.get<number>('jwt.accessExpiresIn') },
     )
   }

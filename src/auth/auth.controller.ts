@@ -20,9 +20,11 @@ export class AuthController {
   @HttpCode(200)
   async logout(@Req() req: Request) {
     // 登出需已登录（走全局守卫），从 access token 中取用户
-    const user = (req as Request & {
-      user?: { sub: number; sessionId: string }
-    }).user
+    const user = (
+      req as Request & {
+        user?: { sub: number; sessionId: string }
+      }
+    ).user
     if (user) {
       await this.authService.logout(user.sub, user.sessionId)
     }

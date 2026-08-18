@@ -73,9 +73,7 @@ describe('JwtAuthGuard', () => {
         type: 'access',
       }),
     ).resolves.toMatchObject({ sessionId: 'session-1' })
-    expect(redisService.get).toHaveBeenCalledWith(
-      'auth:session:7:session-1',
-    )
+    expect(redisService.get).toHaveBeenCalledWith('auth:session:7:session-1')
   })
 
   it.each([null, 'other-jti'])(
