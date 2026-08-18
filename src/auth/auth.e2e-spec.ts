@@ -44,6 +44,7 @@ describe('认证 E2E', () => {
     set: jest.fn(),
     del: jest.fn(),
   }
+  const sessionJtis = new Map<string, string>()
   let hashedPassword: string
 
   // mock 调用记录按用例清空，避免跨用例累计干扰 jti 捕获
@@ -53,6 +54,14 @@ describe('认证 E2E', () => {
     redisMock.get.mockClear()
     redisMock.set.mockClear()
     redisMock.del.mockClear()
+    sessionJtis.clear()
+    redisMock.get.mockImplementation(async (key: string) => sessionJtis.get(key) ?? null)
+    redisMock.set.mockImplementation(async (key: string, value: string) => {
+      sessionJtis.set(key, value)
+    })
+    redisMock.del.mockImplementation(async (key: string) => {
+      sessionJtis.delete(key)
+    })
   })
 
   beforeAll(async () => {
@@ -109,35 +118,36 @@ describe('认证 E2E', () => {
     lastLoginTime: null,
   })
 
-  // 登录并返回 access token（同时让 mock 就绪：redis.get 返回本次登录写入的 jti）
-  const loginAndGetToken = async () => {
+  // 登录并返回 access token 及其 Redis 会话信息
+  const loginAndGetSession = async () => {
     userRepo.findOne.mockResolvedValue(mockUser())
     userRepo.update.mockResolvedValue({ affected: 1 })
-    redisMock.set.mockResolvedValue(undefined)
     const res = await request(httpServer).post('/auth/login').send({
       email: 'admin@example.com',
       password: '123456',
     })
-    // 同一用例内可能多次登录，取最后一次 set 调用对应的 jti
-    const jti = (
-      redisMock.set.mock.calls[redisMock.set.mock.calls.length - 1] as [
-        string,
-        string,
-      ]
-    )[1]
-    redisMock.get.mockResolvedValue(jti)
-    return (res.body as { data: { access_token: string } }).data.access_token
+    const [key, jti] = redisMock.set.mock.calls[
+      redisMock.set.mock.calls.length - 1
+    ] as [string, string]
+    return {
+      response: res,
+      token: (res.body as { data: { access_token: string } }).data.access_token,
+      key,
+      jti,
+    }
+  }
+
+  const loginAndGetToken = async () => {
+    const session = await loginAndGetSession()
+    return session.token
   }
 
   it('登录：返回 access_token 与 user（不含 password），会话 jti 写入 Redis', async () => {
-    userRepo.findOne.mockResolvedValue(mockUser())
-    userRepo.update.mockResolvedValue({ affected: 1 })
-    redisMock.set.mockResolvedValue(undefined)
+    const session = await loginAndGetSession()
+    const res = session.response
+    expect(session.key).toMatch(/^auth:session:1:[^:]+$/)
+    expect(session.jti).toEqual(expect.any(String))
 
-    const res = await request(httpServer).post('/auth/login').send({
-      email: 'admin@example.com',
-      password: '123456',
-    })
     expect(res.status).toBe(200)
     const body = res.body as {
       code: number
@@ -146,7 +156,7 @@ describe('认证 E2E', () => {
     expect(body.code).toBe(0)
     expect(body.data.access_token).toEqual(expect.any(String))
     expect(body.data.user).not.toHaveProperty('password')
-    expect(redisMock.set).toHaveBeenCalledWith(
+    expect(redisMock.set).toHaveBeenLastCalledWith(
       expect.stringContaining('auth:session:1'),
       expect.any(String),
       604800,
@@ -189,22 +199,36 @@ describe('认证 E2E', () => {
     expect((res.body as { code: number }).code).toBe(401)
   })
 
-  it('单端顶号：重新登录后旧 token 失效', async () => {
-    const oldToken = await loginAndGetToken()
-    // 同账号再次登录：Redis 会话 jti 被覆盖为新值
-    const newToken = await loginAndGetToken()
-    expect(newToken).not.toBe(oldToken)
+  it('多端会话：A、B token 同时可用，A 登出后仅 A 失效', async () => {
+    const sessionA = await loginAndGetSession()
+    const sessionB = await loginAndGetSession()
+    expect(sessionA.key).not.toBe(sessionB.key)
+    expect(sessionA.jti).not.toBe(sessionB.jti)
+    expect(sessionJtis.get(sessionA.key)).toBe(sessionA.jti)
+    expect(sessionJtis.get(sessionB.key)).toBe(sessionB.jti)
 
-    // 旧 token 访问：Redis 中的 jti 已是新值 → 401
-    const res = await request(httpServer)
+    const accessA = await request(httpServer)
       .get('/home')
-      .set('Authorization', `Bearer ${oldToken}`)
-    expect((res.body as { code: number }).code).toBe(401)
+      .set('Authorization', `Bearer ${sessionA.token}`)
+    const accessB = await request(httpServer)
+      .get('/home')
+      .set('Authorization', `Bearer ${sessionB.token}`)
+    expect((accessA.body as { code: number }).code).toBe(0)
+    expect((accessB.body as { code: number }).code).toBe(0)
 
-    // 新 token 正常
-    const ok = await request(httpServer)
+    const logoutA = await request(httpServer)
+      .post('/auth/logout')
+      .set('Authorization', `Bearer ${sessionA.token}`)
+    expect(logoutA.status).toBe(200)
+    expect(redisMock.del).toHaveBeenCalledWith(sessionA.key)
+
+    const invalidA = await request(httpServer)
       .get('/home')
-      .set('Authorization', `Bearer ${newToken}`)
-    expect((ok.body as { code: number }).code).toBe(0)
+      .set('Authorization', `Bearer ${sessionA.token}`)
+    const validB = await request(httpServer)
+      .get('/home')
+      .set('Authorization', `Bearer ${sessionB.token}`)
+    expect((invalidA.body as { code: number }).code).toBe(401)
+    expect((validB.body as { code: number }).code).toBe(0)
   })
 })
