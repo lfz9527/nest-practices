@@ -24,7 +24,7 @@ describe('RedisService', () => {
   let redisErrorHandler: (err: Error) => void
 
   beforeAll(async () => {
-    ;(Redis as jest.Mock).mockImplementation(() => mockClient)
+    ;(Redis as unknown as jest.Mock).mockImplementation(() => mockClient)
     const moduleRef = await Test.createTestingModule({
       providers: [
         RedisService,

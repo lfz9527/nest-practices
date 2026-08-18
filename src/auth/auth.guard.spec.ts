@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config'
 import { Reflector } from '@nestjs/core'
+import { RedisService } from '../redis/redis.service'
 import { JwtAuthGuard } from './auth.guard'
 import { JwtStrategy } from './jwt.strategy'
 
@@ -19,9 +20,13 @@ describe('JwtAuthGuard', () => {
 
   beforeAll(() => {
     // 注册 jwt 策略：无 Authorization 头时 passport 走 fail → handleRequest 抛业务 401
-    new JwtStrategy({
-      get: (key: string) => (key === 'jwt.secret' ? 'test-secret' : undefined),
-    } as unknown as ConfigService)
+    new JwtStrategy(
+      {
+        get: (key: string) =>
+          key === 'jwt.secret' ? 'test-secret' : undefined,
+      } as unknown as ConfigService,
+      { get: jest.fn() } as unknown as RedisService,
+    )
   })
 
   beforeEach(() => {
