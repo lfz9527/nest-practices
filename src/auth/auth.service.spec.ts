@@ -64,7 +64,7 @@ describe('AuthService', () => {
       ...overrides,
     }) as User
 
-  it('登录成功：签发单 access token、jti 写入 Redis 会话、更新登录信息', async () => {
+  it('登录成功：生成多端会话、签发携带 sessionId 和 jti 的 access token', async () => {
     userRepoMock.findOne.mockResolvedValue(buildUser())
     jwtMock.signAsync.mockResolvedValue('access-token')
     redisMock.set.mockResolvedValue(undefined)
@@ -78,24 +78,61 @@ describe('AuthService', () => {
     expect(result.access_token).toBe('access-token')
     expect(result).not.toHaveProperty('refresh_token')
     expect(result.user).not.toHaveProperty('password')
-    // 载荷携带 jti 供守卫比对
     expect(jwtMock.signAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         sub: 1,
         email: 'admin@example.com',
+        sessionId: expect.any(String) as string,
         jti: expect.any(String) as string,
+        type: 'access',
       }),
       expect.anything(),
     )
+    const payload = jwtMock.signAsync.mock.calls[0][0]
     expect(redisMock.set).toHaveBeenCalledWith(
-      `${SESSION_KEY_PREFIX}1`,
-      expect.any(String),
+      `${SESSION_KEY_PREFIX}1:${payload.sessionId}`,
+      payload.jti,
       604800,
     )
     expect(userRepoMock.update).toHaveBeenCalledWith(1, {
       lastLoginIp: '127.0.0.1',
       lastLoginTime: expect.any(Date) as Date,
     })
+  })
+
+  it('登录两次：两个会话均可在 Redis 中存在', async () => {
+    userRepoMock.findOne.mockResolvedValue(buildUser())
+    jwtMock.signAsync
+      .mockResolvedValueOnce('access-token-a')
+      .mockResolvedValueOnce('access-token-b')
+    redisMock.set.mockResolvedValue(undefined)
+    userRepoMock.update.mockResolvedValue({ affected: 1 })
+
+    await service.login(
+      { email: 'admin@example.com', password: '123456' },
+      '127.0.0.1',
+    )
+    await service.login(
+      { email: 'admin@example.com', password: '123456' },
+      '127.0.0.1',
+    )
+
+    const firstPayload = jwtMock.signAsync.mock.calls[0][0]
+    const secondPayload = jwtMock.signAsync.mock.calls[1][0]
+    expect(firstPayload.sessionId).not.toBe(secondPayload.sessionId)
+    expect(firstPayload.jti).not.toBe(secondPayload.jti)
+    expect(redisMock.set).toHaveBeenNthCalledWith(
+      1,
+      `${SESSION_KEY_PREFIX}1:${firstPayload.sessionId}`,
+      firstPayload.jti,
+      604800,
+    )
+    expect(redisMock.set).toHaveBeenNthCalledWith(
+      2,
+      `${SESSION_KEY_PREFIX}1:${secondPayload.sessionId}`,
+      secondPayload.jti,
+      604800,
+    )
   })
 
   it('登录失败：邮箱不存在抛 BIZ_ERROR 且文案不暴露账号状态', async () => {
@@ -122,7 +159,9 @@ describe('AuthService', () => {
 
   it('登出：删除 Redis 中的会话 jti', async () => {
     redisMock.del.mockResolvedValue(1)
-    await service.logout(1)
-    expect(redisMock.del).toHaveBeenCalledWith(`${SESSION_KEY_PREFIX}1`)
+    await service.logout(1, 'session-id')
+    expect(redisMock.del).toHaveBeenCalledWith(
+      `${SESSION_KEY_PREFIX}1:session-id`,
+    )
   })
 })

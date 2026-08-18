@@ -11,13 +11,14 @@ import { RedisService } from '../redis/redis.service'
 import { User } from '../users/user.entity'
 import { LoginDto } from './dto/login.dto'
 
-// 会话在 Redis 中的 key 前缀（单端登录：同 userId 只存最新 jti，覆盖即顶号）
+// 会话在 Redis 中的 key 前缀
 export const SESSION_KEY_PREFIX = 'auth:session:'
 
 // access token 载荷
 export interface AccessTokenPayload {
   sub: number
   email: string
+  sessionId: string
   jti: string
   type: 'access'
 }
@@ -47,11 +48,16 @@ export class AuthService {
       throw new AppError(ErrorCodes.BIZ_ERROR, '账号或密码错误')
     }
 
+    const sessionId = randomUUID()
     const jti = randomUUID()
-    const accessToken = await this.signAccess(user.id, user.email, jti)
-    // 覆盖写入即实现单端登录：旧会话 token 的 jti 与 Redis 不一致即被顶号
+    const accessToken = await this.signAccess(
+      user.id,
+      user.email,
+      sessionId,
+      jti,
+    )
     await this.redisService.set(
-      `${SESSION_KEY_PREFIX}${user.id}`,
+      `${SESSION_KEY_PREFIX}${user.id}:${sessionId}`,
       jti,
       this.accessExpiresIn(),
     )
@@ -65,13 +71,18 @@ export class AuthService {
     return { access_token: accessToken, user: userWithoutPassword }
   }
 
-  async logout(userId: number): Promise<void> {
-    await this.redisService.del(`${SESSION_KEY_PREFIX}${userId}`)
+  async logout(userId: number, sessionId: string): Promise<void> {
+    await this.redisService.del(`${SESSION_KEY_PREFIX}${userId}:${sessionId}`)
   }
 
-  private signAccess(sub: number, email: string, jti: string): Promise<string> {
+  private signAccess(
+    sub: number,
+    email: string,
+    sessionId: string,
+    jti: string,
+  ): Promise<string> {
     return this.jwtService.signAsync(
-      { sub, email, jti, type: 'access' } satisfies AccessTokenPayload,
+      { sub, email, sessionId, jti, type: 'access' } satisfies AccessTokenPayload,
       { expiresIn: this.configService.get<number>('jwt.accessExpiresIn') },
     )
   }
