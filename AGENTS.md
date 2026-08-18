@@ -13,7 +13,8 @@ NestJS 11 企业级实践项目 —— TypeORM + MySQL + Pino 日志 + 统一错
 - **数据库**: MySQL 8 + TypeORM 1.1（`autoLoadEntities`，开发环境 `synchronize` 自动同步）
 - **日志**: Pino + nestjs-pino（开发期 pino-pretty 可读输出，生产 JSON 轮转归档）
 - **配置**: YAML 文件（`config.yaml`），通过 `@nestjs/config` + `js-yaml` 加载
-- **认证**: JWT（@nestjs/jwt + passport-jwt）
+- **认证**: JWT 双 token——access 无状态（30 分钟，只验签名）+ refresh 存 Redis（7 天，可轮换/主动失效）
+- **Redis**: ioredis（开发环境：WSL 内 Redis，Windows 经 portproxy 访问 127.0.0.1:6379）
 
 ## 常用命令
 
@@ -28,8 +29,10 @@ pnpm test             # 运行单元测试（*.spec.ts）
 pnpm test:e2e         # 运行 E2E 测试（*.e2e-spec.ts，配置 test/jest-e2e.json）
 pnpm test:cov         # 运行测试并生成覆盖率报告
 pnpm seed             # 创建初始用户（admin@example.com / 123456）
+pnpm redis:link       # WSL Redis 端口转发到 127.0.0.1:6379（需管理员，WSL 重启后重跑）
+pnpm commit           # commitizen 交互式提交（git add . + git-cz）
 pnpm clean            # 清空 node_modules + lock 文件
-git commit            # 经 husky 自动执行 lint + test（pre-commit）
+git commit            # 经 husky：pre-commit 运行 npm test，commit-msg 校验格式
 ```
 
 ## 架构
@@ -40,16 +43,17 @@ src/
 ├── app/                    # 根模块
 ├── config/                 # YAML 配置加载
 ├── database/               # TypeORM + MySQL
+├── redis/                  # Redis 全局模块（ioredis 封装 get/set/del）
 ├── common/                 # 统一错误处理、响应拦截、Pino 日志
-├── users/                  # 用户 CRUD（User 实体含 delFlag 软删除）
-└── auth/                   # JWT 登录/注册（@nestjs/jwt + passport-jwt）
+├── users/                  # 用户查询（User 实体含 delFlag 软删除，现仅 GET /users/:id）
+└── auth/                   # 认证（登录/刷新/登出 + 全局 JwtAuthGuard）
 ```
 
 ## 约定
 
 ### 响应契约
 - **成功**: HTTP 200, body `{ code: 0, message: 'ok', data: ... }`
-- **业务错误**: HTTP 200, body `{ code: -1 (or custom), message: '描述', data: null }` — 用 `AppError` 抛出
+- **业务错误**: HTTP 200, body `{ code: -1 (or custom), message: '描述', data: null }` — 用 `AppError` 抛出，错误码集中定义于 `common/errors/error-codes.ts`
 - **系统错误**: HTTP 4xx/5xx, body `{ code: 同HTTP状态码, message: '描述', data: null }`
 - **未知异常**: HTTP 500, body `{ code: 500, message: '服务器内部错误', data: null }` — 不泄露内部细节
 
@@ -75,19 +79,21 @@ src/
 - ESLint 类型检查规则（`recommendedTypeChecked`）+ `projectService: true`
 - 参数校验：`ValidationPipe({ whitelist: true })` + class-validator 装饰器，校验消息用中文
 - 文件组织：单元测试 `*.spec.ts` 与被测文件同目录；E2E 测试 `*.e2e-spec.ts` 可在任意目录（由 `testRegex` 匹配）
-- husky pre-commit 自动运行 `pnpm lint` + `pnpm test`，不通过不能提交
+- husky pre-commit 仅运行 `npm test`；commit-msg 经 commitlint 校验格式（lint-staged 已配置但未挂载）
 
 ### Commit 规范
 - 格式：`<type>: <subject>`，subject 不超过 100 字符
 - type 必须为以下之一：`feat` `fix` `ui` `util` `style` `refactor` `docs` `test` `chore` `add` `del` `revert` `release` `deploy` `init`
 - husky commit-msg 钩子校验格式，不符合则阻止提交
 
-### JWT 认证
-- 使用 `@nestjs/jwt` 签发 token，`passport-jwt` 策略验证
-- token payload 仅含 `{ sub: userId, email }`，不存敏感数据
-- 登录接口 `POST /auth/login_email` 返回 `{ access_token, user }`（user 不含 password）
-- `config.yaml` 的 `jwt.expiresIn` 为数字秒数（如 604800 = 7天）
-- 注册接口 `POST /auth/register` 字段：nickname + email + password
+### 认证（JWT access + refresh / Redis）
+- 接口：`POST /auth/login`、`POST /auth/refresh`、`POST /auth/logout`；login/refresh 标 `@Public()`，logout 走守卫
+- access payload `{ sub, email, type: 'access' }`（无状态，只验签名不查库）；refresh payload `{ sub, jti }`
+- refresh 存 Redis `auth:refresh:{userId}`（value=jti，TTL=refreshExpiresIn），单端登录靠同 key 覆盖顶号；刷新时轮换（DEL 旧 → SET 新），jti 不一致抛 401
+- refresh 放 httpOnly cookie（path=/auth/refresh，SameSite=Lax）；登出清 cookie + DEL Redis key
+- 全局守卫 `JwtAuthGuard`：未标 `@Public()` 的接口需 `Authorization: Bearer <access>`；401 走业务错误形态（HTTP 200 + body.code 401，AppError(UNAUTHORIZED)）
+- 登录失败统一文案「账号或密码错误」（不暴露账号状态）；status=1 抛「账号已被停用」
+- 开发环境 Redis：WSL 内 Redis（密码 root，监听 0.0.0.0），`pnpm redis:link` 配置 portproxy 后连 127.0.0.1:6379
 
 ## Notes
 
