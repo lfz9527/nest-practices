@@ -15,6 +15,7 @@ const configMock = {
 
 const resMock = {
   cookie: jest.fn(),
+  clearCookie: jest.fn(),
 }
 
 describe('AuthController', () => {
@@ -59,15 +60,20 @@ describe('AuthController', () => {
 
   it('刷新：无 refresh cookie 抛 401', async () => {
     const req = { cookies: {} }
-    await expect(controller.refresh(req as never, resMock as never)).rejects.toMatchObject({
+    await expect(
+      controller.refresh(req as never, resMock as never),
+    ).rejects.toMatchObject({
       code: 401,
     })
   })
 
-  it('登出：调用 service.logout', async () => {
+  it('登出：调用 service.logout 并清除 refresh cookie', async () => {
     authServiceMock.logout.mockResolvedValue(undefined)
     const req = { user: { sub: 7 } }
-    await controller.logout(req as never)
+    await controller.logout(req as never, resMock as never)
     expect(authServiceMock.logout).toHaveBeenCalledWith(7)
+    expect(resMock.clearCookie).toHaveBeenCalledWith('refresh', {
+      path: '/auth/refresh',
+    })
   })
 })

@@ -68,14 +68,27 @@ export class AuthService {
 
     const { password: _password, ...userWithoutPassword } = user
     void _password
-    return { access_token: accessToken, refresh_token: refreshToken, user: userWithoutPassword }
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: userWithoutPassword,
+    }
   }
 
   async refresh(refreshToken: string) {
     let payload: RefreshTokenPayload
     try {
-      payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(refreshToken)
+      payload =
+        await this.jwtService.verifyAsync<RefreshTokenPayload>(refreshToken)
     } catch {
+      throw new AppError(ErrorCodes.UNAUTHORIZED, '登录状态已失效，请重新登录')
+    }
+
+    // 刷新时查库确认用户仍存在且未停用，并从库中取最新 email
+    const user = await this.userRepo.findOne({
+      where: { id: payload.sub, delFlag: 0 },
+    })
+    if (!user || user.status === 1) {
       throw new AppError(ErrorCodes.UNAUTHORIZED, '登录状态已失效，请重新登录')
     }
 
@@ -90,7 +103,7 @@ export class AuthService {
     // 轮换：删旧 jti，签发新 refresh
     const newJti = randomUUID()
     await this.redisService.del(`${REFRESH_KEY_PREFIX}${payload.sub}`)
-    const accessToken = await this.signAccess(payload.sub, '')
+    const accessToken = await this.signAccess(payload.sub, user.email)
     const newRefreshToken = await this.signRefresh(payload.sub, newJti)
     await this.redisService.set(
       `${REFRESH_KEY_PREFIX}${payload.sub}`,

@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  Post,
-  Req,
-  Res,
-} from '@nestjs/common'
+import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { Request, Response } from 'express'
 import { AppError } from '../common/errors/app-error'
@@ -47,7 +40,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const refreshToken = (req as Request & { cookies?: Record<string, string> }).cookies?.[REFRESH_COOKIE]
+    // cookie-parser 已声明 Request.cookies，无需手写 intersection
+    const refreshToken = req.cookies?.[REFRESH_COOKIE] as string | undefined
     if (!refreshToken) {
       throw new AppError(ErrorCodes.UNAUTHORIZED, '缺少 refresh token')
     }
@@ -60,17 +54,20 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(200)
-  async logout(@Req() req: Request) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     // 登出需已登录（走全局守卫），从 access token 中取用户
     const user = (req as Request & { user?: { sub: number } }).user
     if (user) {
       await this.authService.logout(user.sub)
     }
+    // Express 5 需相同 path 才能匹配并清除
+    res.clearCookie(REFRESH_COOKIE, { path: '/auth/refresh' })
     return { message: '已退出登录' }
   }
 
   private setRefreshCookie(res: Response, token: string): void {
-    const maxAge = this.configService.get<number>('jwt.refreshExpiresIn')! * 1000
+    const maxAge =
+      this.configService.get<number>('jwt.refreshExpiresIn')! * 1000
     res.cookie(REFRESH_COOKIE, token, {
       httpOnly: true,
       sameSite: 'lax',
