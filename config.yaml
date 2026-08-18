@@ -28,9 +28,17 @@ logger:
     path: ./logs
     maxSize: 10        # MB
 
+# Redis 连接（开发环境：WSL 内 Redis，经 portproxy 转发到本机 6379）
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: 'root'
+
 # JWT 配置
 jwt:
   # 签名密钥（生产环境应通过环境变量注入，勿硬编码）
   secret: 'nest-practices-secret-key'
-  # 令牌有效期（单位：秒）
-  expiresIn: 604800
+  # access token 有效期（单位：秒）
+  accessExpiresIn: 1800
+  # refresh token 有效期（单位：秒）
+  refreshExpiresIn: 604800
