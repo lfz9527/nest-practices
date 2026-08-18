@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ErrorsModule } from '../common/errors/errors.module'
 import { InterceptorsModule } from '../common/interceptors/interceptors.module'
 import { AppConfigModule } from '../config/config.module'
+import { AuthModule } from '../auth/auth.module'
 import { DatabaseModule } from '../database/database.module'
 import { UsersModule } from '../users/users.module'
 import { AppController } from './app.controller'
@@ -19,6 +20,8 @@ import { AppService } from './app.service'
     DatabaseModule,
     // 用户模块
     UsersModule,
+    // 认证模块
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
