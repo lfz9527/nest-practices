@@ -9,14 +9,16 @@ import { RedisService } from './redis.service'
 
 jest.mock('ioredis')
 
-const loggerMock = { error: jest.fn() }
+const loggerMock = { error: jest.fn(), info: jest.fn() }
 
 const mockClient = {
   get: jest.fn(),
   set: jest.fn(),
   del: jest.fn(),
+  ping: jest.fn(),
   quit: jest.fn(),
   on: jest.fn(),
+  status: 'ready',
 }
 
 describe('RedisService', () => {
@@ -25,9 +27,15 @@ describe('RedisService', () => {
   // 构造器注册的 error 事件回调，在 beforeAll 时捕获（afterEach 会清空 mock 调用记录）
   let redisErrorEvent: string
   let redisErrorHandler: (err: Error) => void
+  let redisLifecycleHandlers: Map<string, Function>
 
   beforeAll(async () => {
-    ;(Redis as unknown as jest.Mock).mockImplementation(() => mockClient)
+    ;(Redis as unknown as jest.Mock).mockImplementation(
+      (options: Record<string, unknown>) => {
+        redisOptions = options
+        return mockClient
+      },
+    )
     const moduleRef = await Test.createTestingModule({
       providers: [
         RedisService,
@@ -40,6 +48,10 @@ describe('RedisService', () => {
                 'redis.host': '127.0.0.1',
                 'redis.port': 6379,
                 'redis.password': 'root',
+                'redis.connectTimeout': 5000,
+                'redis.commandTimeout': 3000,
+                'redis.maxRetries': 5,
+                'redis.retryDelayMax': 2000,
               })[key],
           },
         },
@@ -53,6 +65,9 @@ describe('RedisService', () => {
     ]
     redisErrorEvent = event
     redisErrorHandler = handler
+    redisLifecycleHandlers = new Map(
+      client.on.mock.calls.slice(1) as [string, Function][],
+    )
   })
 
   afterEach(() => {
@@ -86,6 +101,37 @@ describe('RedisService', () => {
     expect(packageJson.dependencies['@nestjs/terminus']).toBe('^11.1.1')
   })
 
+  it('Redis 构造器接收超时配置和有限重试策略', () => {
+    const options = redisOptions
+    expect(options).toMatchObject({
+      connectTimeout: 5000,
+      commandTimeout: 3000,
+      maxRetriesPerRequest: 1,
+    })
+    expect(options.retryStrategy(5)).toBe(1000)
+    expect(options.retryStrategy(6)).toBeNull()
+  })
+
+  it('ping 转发到底层客户端', async () => {
+    client.ping.mockResolvedValue('PONG')
+    await expect(service.ping()).resolves.toBe('PONG')
+    expect(client.ping).toHaveBeenCalledWith()
+  })
+
+  it('连接生命周期事件被监听并记录日志', () => {
+    const handlers = redisLifecycleHandlers
+    expect(handlers.has('ready')).toBe(true)
+    expect(handlers.has('end')).toBe(true)
+    handlers.get('ready')?.()
+    handlers.get('end')?.()
+    expect(loggerMock.info).toHaveBeenCalled()
+  })
+
+  it('关闭中的客户端不重复 quit', async () => {
+    client.status = 'end'
+    await service.onApplicationShutdown()
+    expect(client.quit).not.toHaveBeenCalled()
+  })
   it('get 转发到底层客户端', async () => {
     client.get.mockResolvedValue('v')
     await expect(service.get('k')).resolves.toBe('v')
