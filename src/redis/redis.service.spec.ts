@@ -28,6 +28,7 @@ describe('RedisService', () => {
   let redisErrorEvent: string
   let redisErrorHandler: (err: Error) => void
   let redisLifecycleHandlers: Map<string, Function>
+  let redisOptions: Record<string, any>
 
   beforeAll(async () => {
     ;(Redis as unknown as jest.Mock).mockImplementation(
@@ -50,7 +51,7 @@ describe('RedisService', () => {
                 'redis.password': 'root',
                 'redis.connectTimeout': 5000,
                 'redis.commandTimeout': 3000,
-                'redis.maxRetries': 5,
+                'redis.maxRetries': 15,
                 'redis.retryDelayMax': 2000,
               })[key],
           },
@@ -109,7 +110,8 @@ describe('RedisService', () => {
       maxRetriesPerRequest: 1,
     })
     expect(options.retryStrategy(5)).toBe(1000)
-    expect(options.retryStrategy(6)).toBeNull()
+    expect(options.retryStrategy(11)).toBe(2000)
+    expect(options.retryStrategy(16)).toBeNull()
   })
 
   it('ping 转发到底层客户端', async () => {
@@ -118,19 +120,31 @@ describe('RedisService', () => {
     expect(client.ping).toHaveBeenCalledWith()
   })
 
-  it('连接生命周期事件被监听并记录日志', () => {
+  it('生命周期事件被监听并记录 ready/end 日志', () => {
     const handlers = redisLifecycleHandlers
     expect(handlers.has('ready')).toBe(true)
     expect(handlers.has('end')).toBe(true)
     handlers.get('ready')?.()
     handlers.get('end')?.()
-    expect(loggerMock.info).toHaveBeenCalled()
+    expect(loggerMock.info).toHaveBeenNthCalledWith(1, {
+      msg: 'Redis 连接就绪',
+    })
+    expect(loggerMock.info).toHaveBeenNthCalledWith(2, {
+      msg: 'Redis 连接结束',
+    })
   })
 
-  it('关闭中的客户端不重复 quit', async () => {
+  it('已结束的客户端不重复 quit', async () => {
     client.status = 'end'
     await service.onApplicationShutdown()
     expect(client.quit).not.toHaveBeenCalled()
+  })
+
+  it('正常关闭时调用 quit', async () => {
+    client.status = 'ready'
+    client.quit.mockResolvedValue('OK')
+    await service.onApplicationShutdown()
+    expect(client.quit).toHaveBeenCalledWith()
   })
   it('get 转发到底层客户端', async () => {
     client.get.mockResolvedValue('v')
