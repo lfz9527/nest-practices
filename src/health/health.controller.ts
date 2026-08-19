@@ -94,6 +94,14 @@ export class HealthController {
         },
         '健康检查失败',
       )
+      if (healthResult) {
+        throw new ServiceUnavailableException({
+          status: healthResult.status ?? 'error',
+          info: {},
+          error: {},
+          details: healthResult.details,
+        })
+      }
       throw error
     }
   }

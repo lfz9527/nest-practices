@@ -76,10 +76,19 @@ describe('HealthController', () => {
     const error = new ServiceUnavailableException(healthResult)
     healthCheckServiceMock.check.mockRejectedValue(error)
 
-    await expect(controller.health({ id: 'request-2' } as never)).rejects.toBe(
-      error,
-    )
-    expect(error.getStatus()).toBe(503)
+    const safeError: ServiceUnavailableException = await controller
+      .health({ id: 'request-2' } as never)
+      .catch((caught: ServiceUnavailableException) => caught)
+    expect(safeError.getResponse()).toEqual({
+      status: 'error',
+      info: {},
+      error: {},
+      details: {
+        redis: { status: 'down' },
+        database: { status: 'up' },
+      },
+    })
+    expect(safeError.getStatus()).toBe(503)
     expect(loggerMock.warn).toHaveBeenCalledWith(
       {
         path: '/health',
@@ -156,26 +165,44 @@ describe('HealthController', () => {
     )
     await app.init()
 
-    await request(
+    const healthyResponse = await request(
       app.getHttpServer() as unknown as Parameters<typeof request>[0],
     )
       .get('/health')
       .set('x-request-id', 'http-request-1')
       .expect(200)
+    expect(healthyResponse.body).toEqual({
+      status: 'ok',
+      info: {},
+      error: {},
+      details: {},
+    })
+    expect(healthyResponse.text).not.toMatch(
+      /authorization|password|secret|stack/i,
+    )
     expect(healthCheckServiceMock.check).toHaveBeenCalled()
     expect(loggerMock.warn).not.toHaveBeenCalled()
 
     const error = new ServiceUnavailableException({
       status: 'error',
-      details: { redis: { status: 'down', error: 'connection secret' } },
+      details: {
+        redis: {
+          status: 'down',
+          error: 'connection secret',
+          stack: 'private stack',
+        },
+      },
     })
     healthCheckServiceMock.check.mockRejectedValueOnce(error)
-    await request(
+    const failedResponse = await request(
       app.getHttpServer() as unknown as Parameters<typeof request>[0],
     )
       .get('/health')
       .set('x-request-id', 'http-request-2')
       .expect(503)
+    expect(failedResponse.text).not.toMatch(
+      /connection secret|private stack|password|authorization/i,
+    )
     expect(loggerMock.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         requestId: 'http-request-2',
