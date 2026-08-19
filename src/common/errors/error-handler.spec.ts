@@ -71,6 +71,35 @@ describe('ErrorHandler', () => {
     expect(shutdown).not.toHaveBeenCalled()
   })
 
+  it('健康检查 503：保留白名单状态数据并过滤敏感字段', () => {
+    const error = new HttpException(
+      {
+        status: 'error',
+        info: { database: { status: 'up', password: 'secret' } },
+        error: { redis: { status: 'down', stack: 'private stack' } },
+        details: {
+          redis: { status: 'down', error: 'Redis unavailable' },
+          database: { status: 'up', connection: 'mysql://secret' },
+        },
+      },
+      503,
+    )
+
+    handler.handleError(error, response as unknown as Response)
+
+    expect(response.status).toHaveBeenCalledWith(503)
+    expect(response.json).toHaveBeenCalledWith({
+      code: 503,
+      message: 'Http Exception',
+      data: {
+        status: 'error',
+        info: {},
+        error: {},
+        details: { redis: { status: 'down' }, database: { status: 'up' } },
+      },
+    })
+  })
+
   it('系统错误 404 NotFoundException：error 级别，不污染 fatal 日志', () => {
     const error = new NotFoundException('Cannot GET /noise')
 

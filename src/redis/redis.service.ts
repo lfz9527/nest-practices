@@ -61,6 +61,13 @@ export class RedisService implements OnApplicationShutdown {
     if (this.client.status === 'end' || this.client.status === 'close') {
       return
     }
+    if (
+      this.client.status === 'connecting' ||
+      this.client.status === 'reconnecting'
+    ) {
+      this.client.disconnect()
+      return
+    }
     await this.client.quit()
   }
 }

@@ -7,14 +7,15 @@ if (platform() === 'win32') {
   process.stdout.setDefaultEncoding('utf-8')
 }
 
-import { ValidationPipe, Logger as NestLogger } from '@nestjs/common'
+import { Logger as NestLogger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app/app.module'
+import { configureApplication } from './main.setup'
 import { ErrorHandler } from './common/errors/error-handler'
 
-async function bootstrap() {
+export async function bootstrap() {
   // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
@@ -28,9 +29,7 @@ async function bootstrap() {
   const port = configService.get<number>('port') ?? 3000
   const baseUrl = `http://localhost:${port}`
 
-  app.useLogger(logger)
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
-  app.enableShutdownHooks(['SIGTERM', 'SIGINT'])
+  configureApplication(app, logger)
 
   // 先注册退出动作、再挂进程钩子，保证钩子触发时退出动作必已就绪（规格 §3）
   errorHandler.registerShutdown(async () => {

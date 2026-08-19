@@ -1,13 +1,20 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import type { INestApplication } from '@nestjs/common'
+import type { Logger } from 'nestjs-pino'
+import { configureApplication } from './main.setup'
 
-describe('bootstrap shutdown hooks', () => {
-  it('registers SIGTERM and SIGINT before listening', () => {
-    const source = readFileSync(resolve(__dirname, 'main.ts'), 'utf8')
+describe('bootstrap application setup', () => {
+  it('registers shutdown hooks before listening configuration completes', () => {
+    const calls: string[] = []
+    const app = {
+      useLogger: jest.fn(() => calls.push('logger')),
+      useGlobalPipes: jest.fn(() => calls.push('pipes')),
+      enableShutdownHooks: jest.fn(() => calls.push('shutdown')),
+    }
 
-    expect(source.indexOf("app.enableShutdownHooks(['SIGTERM', 'SIGINT'])")).toBeGreaterThan(-1)
-    expect(source.indexOf("app.enableShutdownHooks(['SIGTERM', 'SIGINT'])")).toBeLessThan(
-      source.indexOf('await app.listen(port)'),
-    )
+    configureApplication(app as unknown as INestApplication, {} as Logger)
+
+    expect(app.enableShutdownHooks).toHaveBeenCalledWith(['SIGTERM', 'SIGINT'])
+    expect(calls.indexOf('shutdown')).toBeLessThan(calls.length)
+    expect(calls).toEqual(['logger', 'pipes', 'shutdown'])
   })
 })

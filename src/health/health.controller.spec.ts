@@ -10,6 +10,8 @@ import type { NextFunction, Request as ExpressRequest, Response } from 'express'
 import request from 'supertest'
 import { Logger } from 'nestjs-pino'
 import { AppConfigModule } from '../config/config.module'
+import { ErrorsModule } from '../common/errors/errors.module'
+import { InterceptorsModule } from '../common/interceptors/interceptors.module'
 import { LoggingModule } from '../common/logging/logging.module'
 import { JwtAuthGuard } from '../auth/auth.guard'
 import { RedisService } from '../redis/redis.service'
@@ -80,10 +82,11 @@ describe('HealthController', () => {
     const error = new ServiceUnavailableException(healthResult)
     healthCheckServiceMock.check.mockRejectedValue(error)
 
-    const safeError: ServiceUnavailableException = await controller
+    const safeError = await controller
       .health({ id: 'request-2' } as never)
-      .catch((caught: ServiceUnavailableException) => caught)
-    expect(safeError.getResponse()).toEqual({
+      .catch((caught: unknown) => caught)
+    expect(safeError).toBeInstanceOf(ServiceUnavailableException)
+    expect((safeError as ServiceUnavailableException).getResponse()).toEqual({
       status: 'error',
       info: {},
       error: {},
@@ -92,7 +95,7 @@ describe('HealthController', () => {
         database: { status: 'up' },
       },
     })
-    expect(safeError.getStatus()).toBe(503)
+    expect((safeError as ServiceUnavailableException).getStatus()).toBe(503)
     expect(loggerMock.warn).toHaveBeenCalledWith(
       {
         path: '/health',
@@ -141,7 +144,13 @@ describe('HealthController', () => {
       database: { status: 'up' },
     })
     const moduleRef = await Test.createTestingModule({
-      imports: [AppConfigModule, LoggingModule, HealthModule],
+      imports: [
+        AppConfigModule,
+        LoggingModule,
+        HealthModule,
+        ErrorsModule,
+        InterceptorsModule,
+      ],
       providers: [
         { provide: Logger, useValue: loggerMock },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
@@ -180,10 +189,14 @@ describe('HealthController', () => {
         .set('x-request-id', 'http-request-1')
         .expect(200)
       expect(healthyResponse.body).toEqual({
-        status: 'ok',
-        info: { redis: { status: 'up' }, database: { status: 'up' } },
-        error: {},
-        details: { redis: { status: 'up' }, database: { status: 'up' } },
+        code: 0,
+        message: 'ok',
+        data: {
+          status: 'ok',
+          info: { redis: { status: 'up' }, database: { status: 'up' } },
+          error: {},
+          details: { redis: { status: 'up' }, database: { status: 'up' } },
+        },
       })
       expect(healthyResponse.text).not.toMatch(
         /authorization|password|secret|stack/i,
@@ -210,12 +223,16 @@ describe('HealthController', () => {
         .set('x-request-id', 'http-request-2')
         .expect(503)
       expect(failedResponse.body).toEqual({
-        status: 'error',
-        info: {},
-        error: {},
-        details: {
-          redis: { status: 'down' },
-          database: { status: 'up' },
+        code: 503,
+        message: 'Service Unavailable Exception',
+        data: {
+          status: 'error',
+          info: {},
+          error: {},
+          details: {
+            redis: { status: 'down' },
+            database: { status: 'up' },
+          },
         },
       })
       expect(failedResponse.text).not.toMatch(
@@ -256,12 +273,16 @@ describe('HealthController', () => {
         .set('x-request-id', 'http-request-3')
         .expect(503)
       expect(databaseFailedResponse.body).toEqual({
-        status: 'error',
-        info: {},
-        error: {},
-        details: {
-          redis: { status: 'up' },
-          database: { status: 'down' },
+        code: 503,
+        message: 'Service Unavailable Exception',
+        data: {
+          status: 'error',
+          info: {},
+          error: {},
+          details: {
+            redis: { status: 'up' },
+            database: { status: 'down' },
+          },
         },
       })
       expect(databaseFailedResponse.text).not.toMatch(
@@ -290,7 +311,13 @@ describe('HealthController', () => {
 
   it('健康模块可编译并解析其实际依赖', async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppConfigModule, LoggingModule, HealthModule],
+      imports: [
+        AppConfigModule,
+        LoggingModule,
+        HealthModule,
+        ErrorsModule,
+        InterceptorsModule,
+      ],
     })
       .overrideProvider(RedisService)
       .useValue({ ping: jest.fn() })

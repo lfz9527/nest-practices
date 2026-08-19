@@ -19,6 +19,7 @@ const mockClient = {
   del: jest.fn(),
   ping: jest.fn(),
   quit: jest.fn(),
+  disconnect: jest.fn(),
   on: jest.fn(),
   status: 'ready',
 }
@@ -138,6 +139,16 @@ describe('RedisService', () => {
     expect(loggerMock.log).toHaveBeenNthCalledWith(2, {
       msg: 'Redis 连接结束',
     })
+  })
+
+  it('connecting/reconnecting 状态直接断开，不等待 quit', async () => {
+    for (const status of ['connecting', 'reconnecting'] as const) {
+      client.status = status
+      await service.onApplicationShutdown()
+      expect(client.disconnect).toHaveBeenCalledWith()
+      client.disconnect.mockClear()
+    }
+    expect(client.quit).not.toHaveBeenCalled()
   })
 
   it('已结束的客户端不重复 quit', async () => {
