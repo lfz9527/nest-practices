@@ -30,6 +30,7 @@ async function bootstrap() {
 
   app.useLogger(logger)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
+  app.enableShutdownHooks(['SIGTERM', 'SIGINT'])
 
   // 先注册退出动作、再挂进程钩子，保证钩子触发时退出动作必已就绪（规格 §3）
   errorHandler.registerShutdown(async () => {
