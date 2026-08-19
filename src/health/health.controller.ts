@@ -1,7 +1,6 @@
-import { Controller, Get } from '@nestjs/common'
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common'
 import {
   HealthCheck,
-  HealthCheckError,
   HealthCheckService,
   TypeOrmHealthIndicator,
 } from '@nestjs/terminus'
@@ -11,7 +10,24 @@ import { RedisHealthIndicator } from './redis-health.indicator'
 
 type HealthRequest = { id?: string }
 
-type HealthResult = Record<string, { status?: string }>
+type HealthResult = {
+  status?: string
+  info?: Record<string, { status?: string }>
+  error?: Record<string, { status?: string }>
+  details?: Record<string, { status?: string }>
+}
+
+const getHealthResult = (error: unknown): HealthResult | undefined => {
+  if (!(error instanceof ServiceUnavailableException)) {
+    return undefined
+  }
+
+  const response = error.getResponse()
+  if (typeof response === 'object' && response !== null && 'details' in response) {
+    return response as HealthResult
+  }
+  return undefined
+}
 
 @Controller()
 export class HealthController {
@@ -32,11 +48,8 @@ export class HealthController {
         () => this.typeOrmHealthIndicator.pingCheck('database'),
       ])
     } catch (error) {
-      const healthResult =
-        error instanceof HealthCheckError
-          ? (error.causes as unknown as HealthResult)
-          : undefined
-      const failedDependencies = Object.entries(healthResult ?? {})
+      const healthResult = getHealthResult(error)
+      const failedDependencies = Object.entries(healthResult?.details ?? {})
         .filter(([, result]) => result.status === 'down')
         .map(([name]) => name)
 
@@ -46,7 +59,6 @@ export class HealthController {
           failedDependencies,
           healthResult,
           requestId: request.id,
-          err: error as unknown,
         },
         '健康检查失败',
       )

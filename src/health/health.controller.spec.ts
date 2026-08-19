@@ -1,8 +1,13 @@
-import { HealthCheckError, HealthCheckService } from '@nestjs/terminus'
+import { AppConfigModule } from '../config/config.module'
+import { LoggingModule } from '../common/logging/logging.module'
+import { HealthCheckService } from '@nestjs/terminus'
+import { ServiceUnavailableException } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import { Logger } from 'nestjs-pino'
-import { RedisHealthIndicator } from './redis-health.indicator'
+import { RedisService } from '../redis/redis.service'
 import { HealthController } from './health.controller'
+import { HealthModule } from './health.module'
+import { RedisHealthIndicator } from './redis-health.indicator'
 import { TypeOrmHealthIndicator } from '@nestjs/terminus'
 
 const healthCheckServiceMock = {
@@ -56,26 +61,65 @@ describe('HealthController', () => {
     )
   })
 
-  it('健康检查失败时记录结构化日志并原样抛出 HealthCheckError', async () => {
-    const error = new HealthCheckError('Health check failed', {
-      redis: { status: 'down' },
-      database: { status: 'up' },
-    })
+  it('健康检查失败时解析 ServiceUnavailableException 并保留真实 503 语义', async () => {
+    const healthResult = {
+      status: 'error',
+      info: { database: { status: 'up' } },
+      error: { redis: { status: 'down', error: 'Redis unavailable' } },
+      details: {
+        redis: { status: 'down', error: 'Redis unavailable' },
+        database: { status: 'up' },
+      },
+    }
+    const error = new ServiceUnavailableException(healthResult)
     healthCheckServiceMock.check.mockRejectedValue(error)
 
     await expect(controller.health({ id: 'request-2' } as never)).rejects.toBe(
       error,
     )
+    expect(error.getStatus()).toBe(503)
     expect(loggerMock.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
+      {
         path: '/health',
         failedDependencies: ['redis'],
-        healthResult: error.causes,
+        healthResult,
         requestId: 'request-2',
-        err: error,
-      }),
+      },
       '健康检查失败',
     )
+  })
+
+  it('非 Terminus 异常也只记录安全的健康信息', async () => {
+    const error = new Error(
+      'redis://:secret-password@db.example.test:6379\nprivate stack',
+    )
+    healthCheckServiceMock.check.mockRejectedValue(error)
+
+    await expect(controller.health({ id: 'request-3' } as never)).rejects.toBe(
+      error,
+    )
+    const [fields] = loggerMock.warn.mock.calls[0]
+    expect(fields).toEqual({
+      path: '/health',
+      failedDependencies: [],
+      healthResult: undefined,
+      requestId: 'request-3',
+    })
+    expect(JSON.stringify(fields)).not.toContain('secret-password')
+    expect(JSON.stringify(fields)).not.toContain('private stack')
+  })
+
+  it('健康模块可编译并解析其实际依赖', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppConfigModule, LoggingModule, HealthModule],
+    })
+      .overrideProvider(RedisService)
+      .useValue({ ping: jest.fn() })
+      .compile()
+
+    expect(moduleRef.get(HealthCheckService)).toBeDefined()
+    expect(moduleRef.resolve(TypeOrmHealthIndicator)).resolves.toBeDefined()
+    expect(moduleRef.get(RedisHealthIndicator)).toBeDefined()
   })
 
   it('接口标记为公开且使用 Terminus 健康检查装饰器', () => {
