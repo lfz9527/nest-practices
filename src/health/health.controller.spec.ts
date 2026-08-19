@@ -1,6 +1,10 @@
 import { INestApplication, ServiceUnavailableException } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
-import { HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus'
+import {
+  HealthCheckError,
+  HealthCheckService,
+  TypeOrmHealthIndicator,
+} from '@nestjs/terminus'
 import { Test } from '@nestjs/testing'
 import type { NextFunction, Request as ExpressRequest, Response } from 'express'
 import request from 'supertest'
@@ -129,93 +133,113 @@ describe('HealthController', () => {
     expect(JSON.stringify(fields)).not.toContain('private stack')
   })
 
-  it('真实 HTTP 层公开访问成功并记录 request id，失败返回 503', async () => {
-    healthCheckServiceMock.check.mockResolvedValueOnce({
-      status: 'ok',
-      info: {},
-      error: {},
-      details: {},
+  it('真实 HTTP 层公开访问成功，并在 Redis indicator reject 时返回 Terminus 503 结构', async () => {
+    redisHealthIndicatorMock.pingCheck.mockResolvedValue({
+      redis: { status: 'up' },
+    })
+    typeOrmHealthIndicatorMock.pingCheck.mockResolvedValue({
+      database: { status: 'up' },
     })
     const moduleRef = await Test.createTestingModule({
-      controllers: [HealthController],
+      imports: [AppConfigModule, LoggingModule, HealthModule],
       providers: [
-        { provide: HealthCheckService, useValue: healthCheckServiceMock },
-        { provide: RedisHealthIndicator, useValue: redisHealthIndicatorMock },
-        {
-          provide: TypeOrmHealthIndicator,
-          useValue: typeOrmHealthIndicatorMock,
-        },
         { provide: Logger, useValue: loggerMock },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
       ],
-    }).compile()
+    })
+      .overrideProvider(Logger)
+      .useValue(loggerMock)
+      .overrideProvider(RedisService)
+      .useValue({ ping: jest.fn() })
+      .overrideProvider(RedisHealthIndicator)
+      .useValue(redisHealthIndicatorMock)
+      .overrideProvider(TypeOrmHealthIndicator)
+      .useValue(typeOrmHealthIndicatorMock)
+      .compile()
     const app: INestApplication = moduleRef.createNestApplication()
-    app.use(
-      (
-        req: ExpressRequest & { id?: string },
-        _res: Response,
-        next: NextFunction,
-      ) => {
-        req.id =
-          typeof req.headers['x-request-id'] === 'string'
-            ? req.headers['x-request-id']
-            : 'generated-id'
-        next()
-      },
-    )
-    await app.init()
-
-    const healthyResponse = await request(
-      app.getHttpServer() as unknown as Parameters<typeof request>[0],
-    )
-      .get('/health')
-      .set('x-request-id', 'http-request-1')
-      .expect(200)
-    expect(healthyResponse.body).toEqual({
-      status: 'ok',
-      info: {},
-      error: {},
-      details: {},
-    })
-    expect(healthyResponse.text).not.toMatch(
-      /authorization|password|secret|stack/i,
-    )
-    expect(healthCheckServiceMock.check).toHaveBeenCalled()
-    expect(loggerMock.warn).not.toHaveBeenCalled()
-
-    const error = new ServiceUnavailableException({
-      status: 'error',
-      details: {
-        redis: {
-          status: 'down',
-          error: 'connection secret',
-          stack: 'private stack',
+    try {
+      app.use(
+        (
+          req: ExpressRequest & { id?: string },
+          _res: Response,
+          next: NextFunction,
+        ) => {
+          req.id =
+            typeof req.headers['x-request-id'] === 'string'
+              ? req.headers['x-request-id']
+              : 'generated-id'
+          next()
         },
-      },
-    })
-    healthCheckServiceMock.check.mockRejectedValueOnce(error)
-    const failedResponse = await request(
-      app.getHttpServer() as unknown as Parameters<typeof request>[0],
-    )
-      .get('/health')
-      .set('x-request-id', 'http-request-2')
-      .expect(503)
-    expect(failedResponse.text).not.toMatch(
-      /connection secret|private stack|password|authorization/i,
-    )
-    expect(loggerMock.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requestId: 'http-request-2',
-        healthResult: {
-          status: 'error',
-          details: { redis: { status: 'down' } },
-        },
-      }),
-      '健康检查失败',
-    )
+      )
+      await app.init()
 
-    await app.close()
-    await moduleRef.close()
+      const healthyResponse = await request(
+        app.getHttpServer() as unknown as Parameters<typeof request>[0],
+      )
+        .get('/health')
+        .set('x-request-id', 'http-request-1')
+        .expect(200)
+      expect(healthyResponse.body).toEqual({
+        status: 'ok',
+        info: { redis: { status: 'up' }, database: { status: 'up' } },
+        error: {},
+        details: { redis: { status: 'up' }, database: { status: 'up' } },
+      })
+      expect(healthyResponse.text).not.toMatch(
+        /authorization|password|secret|stack/i,
+      )
+      expect(redisHealthIndicatorMock.pingCheck).toHaveBeenCalledWith('redis')
+      expect(typeOrmHealthIndicatorMock.pingCheck).toHaveBeenCalledWith(
+        'database',
+      )
+      expect(loggerMock.warn).not.toHaveBeenCalled()
+
+      redisHealthIndicatorMock.pingCheck.mockRejectedValueOnce(
+        new HealthCheckError('Redis unavailable', {
+          redis: {
+            status: 'down',
+            error:
+              'redis://:secret-password@db.example.test:6379\nprivate stack',
+          },
+        }),
+      )
+      const failedResponse = await request(
+        app.getHttpServer() as unknown as Parameters<typeof request>[0],
+      )
+        .get('/health')
+        .set('x-request-id', 'http-request-2')
+        .expect(503)
+      expect(failedResponse.body).toEqual({
+        status: 'error',
+        info: {},
+        error: {},
+        details: {
+          redis: { status: 'down' },
+          database: { status: 'up' },
+        },
+      })
+      expect(failedResponse.text).not.toMatch(
+        /secret-password|db\.example\.test|private stack|password|authorization/i,
+      )
+      expect(loggerMock.warn).toHaveBeenCalledWith(
+        {
+          path: '/health',
+          failedDependencies: ['redis'],
+          healthResult: {
+            status: 'error',
+            details: {
+              redis: { status: 'down' },
+              database: { status: 'up' },
+            },
+          },
+          requestId: 'http-request-2',
+        },
+        '健康检查失败',
+      )
+    } finally {
+      await app.close()
+      await moduleRef.close()
+    }
   })
 
   it('健康模块可编译并解析其实际依赖', async () => {
