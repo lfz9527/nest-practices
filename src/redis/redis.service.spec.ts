@@ -2,14 +2,16 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Test } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
-import Redis from 'ioredis'
+import Redis, { RedisOptions } from 'ioredis'
 import { load } from 'js-yaml'
 import { Logger } from 'nestjs-pino'
 import { RedisService } from './redis.service'
 
 jest.mock('ioredis')
 
-const loggerMock = { error: jest.fn(), info: jest.fn() }
+type RedisEventHandler = (value?: Error) => void
+
+const loggerMock = { error: jest.fn(), log: jest.fn() }
 
 const mockClient = {
   get: jest.fn(),
@@ -27,12 +29,12 @@ describe('RedisService', () => {
   // 构造器注册的 error 事件回调，在 beforeAll 时捕获（afterEach 会清空 mock 调用记录）
   let redisErrorEvent: string
   let redisErrorHandler: (err: Error) => void
-  let redisLifecycleHandlers: Map<string, Function>
-  let redisOptions: Record<string, any>
+  let redisLifecycleHandlers: Map<string, RedisEventHandler>
+  let redisOptions: RedisOptions
 
   beforeAll(async () => {
     ;(Redis as unknown as jest.Mock).mockImplementation(
-      (options: Record<string, unknown>) => {
+      (options: RedisOptions) => {
         redisOptions = options
         return mockClient
       },
@@ -67,7 +69,7 @@ describe('RedisService', () => {
     redisErrorEvent = event
     redisErrorHandler = handler
     redisLifecycleHandlers = new Map(
-      client.on.mock.calls.slice(1) as [string, Function][],
+      client.on.mock.calls.slice(1) as [string, RedisEventHandler][],
     )
   })
 
@@ -90,7 +92,9 @@ describe('RedisService', () => {
     })
     expect(content).toContain('# 建立 Redis TCP 连接的超时时间，单位：毫秒')
     expect(content).toContain('# 单条 Redis 命令的超时时间，单位：毫秒')
-    expect(content).toContain('# 自动重连的最大尝试次数，达到上限后停止重连但不退出应用')
+    expect(content).toContain(
+      '# 自动重连的最大尝试次数，达到上限后停止重连但不退出应用',
+    )
     expect(content).toContain('# 单次重连退避时间的最大值，单位：毫秒')
   })
 
@@ -109,9 +113,11 @@ describe('RedisService', () => {
       commandTimeout: 3000,
       maxRetriesPerRequest: 1,
     })
-    expect(options.retryStrategy(5)).toBe(1000)
-    expect(options.retryStrategy(11)).toBe(2000)
-    expect(options.retryStrategy(16)).toBeNull()
+    const retryStrategy = redisOptions.retryStrategy
+    expect(retryStrategy).toBeDefined()
+    expect(retryStrategy?.(5)).toBe(1000)
+    expect(retryStrategy?.(11)).toBe(2000)
+    expect(retryStrategy?.(16)).toBeNull()
   })
 
   it('ping 转发到底层客户端', async () => {
@@ -126,10 +132,10 @@ describe('RedisService', () => {
     expect(handlers.has('end')).toBe(true)
     handlers.get('ready')?.()
     handlers.get('end')?.()
-    expect(loggerMock.info).toHaveBeenNthCalledWith(1, {
+    expect(loggerMock.log).toHaveBeenNthCalledWith(1, {
       msg: 'Redis 连接就绪',
     })
-    expect(loggerMock.info).toHaveBeenNthCalledWith(2, {
+    expect(loggerMock.log).toHaveBeenNthCalledWith(2, {
       msg: 'Redis 连接结束',
     })
   })

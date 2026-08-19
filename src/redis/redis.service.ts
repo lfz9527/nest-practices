@@ -22,9 +22,7 @@ export class RedisService implements OnApplicationShutdown {
         const maxRetries = configService.get<number>('redis.maxRetries') ?? 5
         const retryDelayMax =
           configService.get<number>('redis.retryDelayMax') ?? 2000
-        return times > maxRetries
-          ? null
-          : Math.min(times * 200, retryDelayMax)
+        return times > maxRetries ? null : Math.min(times * 200, retryDelayMax)
       },
     })
     // 未捕获的 error 事件会让 ioredis 抛出导致进程崩溃，必须监听
@@ -32,10 +30,10 @@ export class RedisService implements OnApplicationShutdown {
       this.logger.error({ msg: 'Redis 连接错误', err })
     })
     this.client.on('ready', () => {
-      this.logger.info({ msg: 'Redis 连接就绪' })
+      this.logger.log({ msg: 'Redis 连接就绪' })
     })
     this.client.on('end', () => {
-      this.logger.info({ msg: 'Redis 连接结束' })
+      this.logger.log({ msg: 'Redis 连接结束' })
     })
   }
 
