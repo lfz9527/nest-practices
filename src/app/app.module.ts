@@ -5,6 +5,7 @@ import { AppConfigModule } from '../config/config.module'
 import { AuthModule } from '../auth/auth.module'
 import { DatabaseModule } from '../database/database.module'
 import { RedisModule } from '../redis/redis.module'
+import { HealthModule } from '../health/health.module'
 import { UsersModule } from '../users/users.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
@@ -25,6 +26,8 @@ import { AppService } from './app.service'
     AuthModule,
     // 全局 Redis（@Global，供认证等模块注入 RedisService）
     RedisModule,
+    // 健康检查
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
