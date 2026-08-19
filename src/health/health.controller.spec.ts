@@ -236,6 +236,52 @@ describe('HealthController', () => {
         },
         '健康检查失败',
       )
+
+      redisHealthIndicatorMock.pingCheck.mockResolvedValueOnce({
+        redis: { status: 'up' },
+      })
+      typeOrmHealthIndicatorMock.pingCheck.mockRejectedValueOnce(
+        new HealthCheckError('Database unavailable', {
+          database: {
+            status: 'down',
+            error:
+              'mysql://root:secret-password@db.example.test:3306/app\nprivate stack',
+          },
+        }),
+      )
+      const databaseFailedResponse = await request(
+        app.getHttpServer() as unknown as Parameters<typeof request>[0],
+      )
+        .get('/health')
+        .set('x-request-id', 'http-request-3')
+        .expect(503)
+      expect(databaseFailedResponse.body).toEqual({
+        status: 'error',
+        info: {},
+        error: {},
+        details: {
+          redis: { status: 'up' },
+          database: { status: 'down' },
+        },
+      })
+      expect(databaseFailedResponse.text).not.toMatch(
+        /secret-password|db\.example\.test|private stack|password|authorization/i,
+      )
+      expect(loggerMock.warn).toHaveBeenCalledWith(
+        {
+          path: '/health',
+          failedDependencies: ['database'],
+          healthResult: {
+            status: 'error',
+            details: {
+              redis: { status: 'up' },
+              database: { status: 'down' },
+            },
+          },
+          requestId: 'http-request-3',
+        },
+        '健康检查失败',
+      )
     } finally {
       await app.close()
       await moduleRef.close()
