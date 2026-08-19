@@ -22,7 +22,7 @@ import { RedisHealthIndicator } from './redis-health.indicator'
 const healthCheckServiceMock = { check: jest.fn() }
 const redisHealthIndicatorMock = { pingCheck: jest.fn() }
 const typeOrmHealthIndicatorMock = { pingCheck: jest.fn() }
-const loggerMock = { warn: jest.fn() }
+const loggerMock = { warn: jest.fn(), error: jest.fn() }
 
 describe('HealthController', () => {
   let controller: HealthController
@@ -206,6 +206,7 @@ describe('HealthController', () => {
         'database',
       )
       expect(loggerMock.warn).not.toHaveBeenCalled()
+      expect(loggerMock.error).not.toHaveBeenCalled()
 
       redisHealthIndicatorMock.pingCheck.mockRejectedValueOnce(
         new HealthCheckError('Redis unavailable', {

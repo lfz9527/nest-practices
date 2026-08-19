@@ -60,7 +60,7 @@ export class ErrorHandler {
         body: {
           code: status,
           message: this.extractMessage(error),
-          data: this.isHealthResponse(response)
+          data: this.isHealthResponse(response, status)
             ? this.extractHealthData(response)
             : null,
         },
@@ -79,13 +79,14 @@ export class ErrorHandler {
     }
   }
 
-  private isHealthResponse(response: string | object): boolean {
+  private isHealthResponse(response: string | object, status: number): boolean {
     if (typeof response !== 'object' || response === null) {
       return false
     }
     const value = response as Record<string, unknown>
     return (
-      typeof value.status === 'string' &&
+      status === 503 &&
+      value.status === 'error' &&
       typeof value.info === 'object' &&
       value.info !== null &&
       typeof value.error === 'object' &&

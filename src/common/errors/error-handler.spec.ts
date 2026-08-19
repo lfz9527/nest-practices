@@ -25,15 +25,13 @@ describe('ErrorHandler', () => {
 
   it('业务 AppError：HTTP 200、error 级日志、不触发退出', () => {
     const error = new AppError(40401, '用户 999 不存在')
-
     handler.handleError(error, response as unknown as Response)
-
     expect(logger.error).toHaveBeenCalledWith({ err: error }, error.message)
     expect(logger.fatal).not.toHaveBeenCalled()
     expect(response.status).toHaveBeenCalledWith(200)
     expect(response.json).toHaveBeenCalledWith({
       code: 40401,
-      message: '用户 999 不存在',
+      message: error.message,
       data: null,
     })
     expect(shutdown).not.toHaveBeenCalled()
@@ -44,7 +42,6 @@ describe('ErrorHandler', () => {
       new AppError('库存不足'),
       response as unknown as Response,
     )
-
     expect(response.status).toHaveBeenCalledWith(200)
     expect(response.json).toHaveBeenCalledWith({
       code: -1,
@@ -55,9 +52,7 @@ describe('ErrorHandler', () => {
 
   it('系统错误 HttpException：error 级别、数组 message 合并', () => {
     const error = new BadRequestException(['a 必填', 'b 必须为数字'])
-
     handler.handleError(error, response as unknown as Response)
-
     expect(logger.error).toHaveBeenCalledWith(
       { err: error },
       'a 必填; b 必须为数字',
@@ -84,9 +79,7 @@ describe('ErrorHandler', () => {
       },
       503,
     )
-
     handler.handleError(error, response as unknown as Response)
-
     expect(response.status).toHaveBeenCalledWith(503)
     expect(response.json).toHaveBeenCalledWith({
       code: 503,
@@ -100,11 +93,30 @@ describe('ErrorHandler', () => {
     })
   })
 
+  it.each([400, 404])(
+    '普通 %s HttpException 即使包含健康字段也保持 data 为 null',
+    (status) => {
+      const error = new HttpException(
+        {
+          status: 'error',
+          info: { field: { status: 'up' } },
+          error: { field: { status: 'down' } },
+          details: { field: { status: 'down' } },
+        },
+        status,
+      )
+      handler.handleError(error, response as unknown as Response)
+      expect(response.json).toHaveBeenCalledWith({
+        code: status,
+        message: error.message,
+        data: null,
+      })
+    },
+  )
+
   it('系统错误 404 NotFoundException：error 级别，不污染 fatal 日志', () => {
     const error = new NotFoundException('Cannot GET /noise')
-
     handler.handleError(error, response as unknown as Response)
-
     expect(logger.error).toHaveBeenCalledWith(
       { err: error },
       'Cannot GET /noise',
@@ -118,10 +130,9 @@ describe('ErrorHandler', () => {
     })
   })
 
-  it('裸 Error 有响应流：fatal 日志、响应 500、进程继续（规格 D3）', () => {
+  it('裸 Error 有响应流：fatal 日志、响应 500、进程继续', () => {
     const err = new Error('boom')
     handler.handleError(err, response as unknown as Response)
-
     expect(logger.fatal).toHaveBeenCalledWith({ err }, '服务器内部错误')
     expect(response.status).toHaveBeenCalledWith(500)
     expect(response.json).toHaveBeenCalledWith({
@@ -132,10 +143,9 @@ describe('ErrorHandler', () => {
     expect(shutdown).not.toHaveBeenCalled()
   })
 
-  it('裸 Error 无响应流（进程级游离错误）：fatal 日志并触发优雅退出', () => {
+  it('裸 Error 无响应流：fatal 日志并触发优雅退出', () => {
     const err = new Error('boom')
     handler.handleError(err)
-
     expect(logger.fatal).toHaveBeenCalledWith({ err }, '服务器内部错误')
     expect(shutdown).toHaveBeenCalled()
   })
@@ -148,9 +158,7 @@ describe('ErrorHandler', () => {
 
   it('HttpException 字符串 message：直接返回，不合并', () => {
     const error = new BadRequestException('参数错误')
-
     handler.handleError(error, response as unknown as Response)
-
     expect(response.status).toHaveBeenCalledWith(400)
     expect(response.json).toHaveBeenCalledWith({
       code: 400,
@@ -164,9 +172,7 @@ describe('ErrorHandler', () => {
       { statusCode: 400, error: 'Bad Request' },
       400,
     )
-
     handler.handleError(error, response as unknown as Response)
-
     expect(response.status).toHaveBeenCalledWith(400)
     expect(response.json).toHaveBeenCalledWith({
       code: 400,

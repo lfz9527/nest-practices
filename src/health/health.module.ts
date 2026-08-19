@@ -7,7 +7,12 @@ import { HealthController } from './health.controller'
 import { RedisHealthIndicator } from './redis-health.indicator'
 
 @Module({
-  imports: [TerminusModule, RedisModule, DatabaseModule, LoggingModule],
+  imports: [
+    TerminusModule.forRoot({ logger: false }),
+    RedisModule,
+    DatabaseModule,
+    LoggingModule,
+  ],
   controllers: [HealthController],
   providers: [RedisHealthIndicator],
 })
