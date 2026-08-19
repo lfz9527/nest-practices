@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { Test } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
 import Redis from 'ioredis'
+import { load } from 'js-yaml'
 import { Logger } from 'nestjs-pino'
 import { RedisService } from './redis.service'
 
@@ -54,6 +57,33 @@ describe('RedisService', () => {
 
   afterEach(() => {
     jest.clearAllMocks()
+  })
+
+  it('config.yaml 包含 Redis 超时和重试配置及中文注释', () => {
+    const configPath = resolve(__dirname, '../../config.yaml')
+    const content = readFileSync(configPath, 'utf8')
+    const config = load(content) as {
+      redis: Record<string, number>
+    }
+
+    expect(config.redis).toMatchObject({
+      connectTimeout: 5000,
+      commandTimeout: 3000,
+      maxRetries: 5,
+      retryDelayMax: 2000,
+    })
+    expect(content).toContain('# 建立 Redis TCP 连接的超时时间，单位：毫秒')
+    expect(content).toContain('# 单条 Redis 命令的超时时间，单位：毫秒')
+    expect(content).toContain('# 自动重连的最大尝试次数，达到上限后停止重连但不退出应用')
+    expect(content).toContain('# 单次重连退避时间的最大值，单位：毫秒')
+  })
+
+  it('@nestjs/terminus 作为运行时依赖声明', () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(__dirname, '../../package.json'), 'utf8'),
+    ) as { dependencies: Record<string, string> }
+
+    expect(packageJson.dependencies['@nestjs/terminus']).toBe('^11.1.1')
   })
 
   it('get 转发到底层客户端', async () => {
