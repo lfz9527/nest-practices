@@ -1,4 +1,10 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common'
+import {
+  Controller,
+  Get,
+  Req,
+  ServiceUnavailableException,
+} from '@nestjs/common'
+import type { Request } from 'express'
 import {
   HealthCheck,
   HealthCheckService,
@@ -8,13 +14,11 @@ import { Logger } from 'nestjs-pino'
 import { Public } from '../auth/public.decorator'
 import { RedisHealthIndicator } from './redis-health.indicator'
 
-type HealthRequest = { id?: string }
+type HealthRequest = Request & { id?: string }
 
 type HealthResult = {
   status?: string
-  info?: Record<string, { status?: string }>
-  error?: Record<string, { status?: string }>
-  details?: Record<string, { status?: string }>
+  details?: Record<string, { status?: 'up' | 'down' }>
 }
 
 const getHealthResult = (error: unknown): HealthResult | undefined => {
@@ -23,10 +27,38 @@ const getHealthResult = (error: unknown): HealthResult | undefined => {
   }
 
   const response = error.getResponse()
-  if (typeof response === 'object' && response !== null && 'details' in response) {
-    return response as HealthResult
+  if (
+    typeof response !== 'object' ||
+    response === null ||
+    !('details' in response)
+  ) {
+    return undefined
   }
-  return undefined
+
+  const result = response as {
+    status?: unknown
+    details?: unknown
+  }
+  const details = result.details
+  if (typeof details !== 'object' || details === null) {
+    return undefined
+  }
+
+  const safeDetails: Record<string, { status: 'up' | 'down' }> = {}
+  for (const [name, value] of Object.entries(details)) {
+    if (typeof value !== 'object' || value === null) {
+      continue
+    }
+    const status = (value as { status?: unknown }).status
+    if (status === 'up' || status === 'down') {
+      safeDetails[name] = { status }
+    }
+  }
+
+  return {
+    status: typeof result.status === 'string' ? result.status : undefined,
+    details: safeDetails,
+  }
 }
 
 @Controller()
@@ -41,7 +73,7 @@ export class HealthController {
   @Get('health')
   @Public()
   @HealthCheck()
-  async health(request: HealthRequest) {
+  async health(@Req() request: HealthRequest) {
     try {
       return await this.healthCheckService.check([
         () => this.redisHealthIndicator.pingCheck('redis'),

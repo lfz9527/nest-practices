@@ -1,32 +1,27 @@
+import { INestApplication, ServiceUnavailableException } from '@nestjs/common'
+import { APP_GUARD } from '@nestjs/core'
+import { HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus'
+import { Test } from '@nestjs/testing'
+import type { NextFunction, Request as ExpressRequest, Response } from 'express'
+import request from 'supertest'
+import { Logger } from 'nestjs-pino'
 import { AppConfigModule } from '../config/config.module'
 import { LoggingModule } from '../common/logging/logging.module'
-import { HealthCheckService } from '@nestjs/terminus'
-import { ServiceUnavailableException } from '@nestjs/common'
-import { Test } from '@nestjs/testing'
-import { Logger } from 'nestjs-pino'
+import { JwtAuthGuard } from '../auth/auth.guard'
 import { RedisService } from '../redis/redis.service'
 import { HealthController } from './health.controller'
 import { HealthModule } from './health.module'
 import { RedisHealthIndicator } from './redis-health.indicator'
-import { TypeOrmHealthIndicator } from '@nestjs/terminus'
 
-const healthCheckServiceMock = {
-  check: jest.fn(),
-}
-const redisHealthIndicatorMock = {
-  pingCheck: jest.fn(),
-}
-const typeOrmHealthIndicatorMock = {
-  pingCheck: jest.fn(),
-}
-const loggerMock = {
-  warn: jest.fn(),
-}
+const healthCheckServiceMock = { check: jest.fn() }
+const redisHealthIndicatorMock = { pingCheck: jest.fn() }
+const typeOrmHealthIndicatorMock = { pingCheck: jest.fn() }
+const loggerMock = { warn: jest.fn() }
 
 describe('HealthController', () => {
   let controller: HealthController
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [HealthController],
       providers: [
@@ -52,7 +47,10 @@ describe('HealthController', () => {
       result,
     )
     expect(healthCheckServiceMock.check).toHaveBeenCalledTimes(1)
-    const [checks] = healthCheckServiceMock.check.mock.calls[0]
+    const calls = healthCheckServiceMock.check.mock.calls as unknown as Array<
+      [Array<() => Promise<unknown>>]
+    >
+    const [checks] = calls[0]
     await checks[0]()
     await checks[1]()
     expect(redisHealthIndicatorMock.pingCheck).toHaveBeenCalledWith('redis')
@@ -61,14 +59,18 @@ describe('HealthController', () => {
     )
   })
 
-  it('健康检查失败时解析 ServiceUnavailableException 并保留真实 503 语义', async () => {
+  it('健康检查失败时只记录白名单结果并重新抛出 503 异常', async () => {
     const healthResult = {
       status: 'error',
-      info: { database: { status: 'up' } },
+      info: { database: { status: 'up', connection: 'mysql://secret' } },
       error: { redis: { status: 'down', error: 'Redis unavailable' } },
       details: {
-        redis: { status: 'down', error: 'Redis unavailable' },
-        database: { status: 'up' },
+        redis: {
+          status: 'down',
+          error: 'Redis unavailable',
+          stack: 'private stack',
+        },
+        database: { status: 'up', connection: 'mysql://secret' },
       },
     }
     const error = new ServiceUnavailableException(healthResult)
@@ -82,10 +84,19 @@ describe('HealthController', () => {
       {
         path: '/health',
         failedDependencies: ['redis'],
-        healthResult,
+        healthResult: {
+          status: 'error',
+          details: { redis: { status: 'down' }, database: { status: 'up' } },
+        },
         requestId: 'request-2',
       },
       '健康检查失败',
+    )
+    expect(JSON.stringify(loggerMock.warn.mock.calls[0])).not.toContain(
+      'secret',
+    )
+    expect(JSON.stringify(loggerMock.warn.mock.calls[0])).not.toContain(
+      'private stack',
     )
   })
 
@@ -98,7 +109,7 @@ describe('HealthController', () => {
     await expect(controller.health({ id: 'request-3' } as never)).rejects.toBe(
       error,
     )
-    const [fields] = loggerMock.warn.mock.calls[0]
+    const [fields] = loggerMock.warn.mock.calls[0] as [Record<string, unknown>]
     expect(fields).toEqual({
       path: '/health',
       failedDependencies: [],
@@ -107,6 +118,77 @@ describe('HealthController', () => {
     })
     expect(JSON.stringify(fields)).not.toContain('secret-password')
     expect(JSON.stringify(fields)).not.toContain('private stack')
+  })
+
+  it('真实 HTTP 层公开访问成功并记录 request id，失败返回 503', async () => {
+    healthCheckServiceMock.check.mockResolvedValueOnce({
+      status: 'ok',
+      info: {},
+      error: {},
+      details: {},
+    })
+    const moduleRef = await Test.createTestingModule({
+      controllers: [HealthController],
+      providers: [
+        { provide: HealthCheckService, useValue: healthCheckServiceMock },
+        { provide: RedisHealthIndicator, useValue: redisHealthIndicatorMock },
+        {
+          provide: TypeOrmHealthIndicator,
+          useValue: typeOrmHealthIndicatorMock,
+        },
+        { provide: Logger, useValue: loggerMock },
+        { provide: APP_GUARD, useClass: JwtAuthGuard },
+      ],
+    }).compile()
+    const app: INestApplication = moduleRef.createNestApplication()
+    app.use(
+      (
+        req: ExpressRequest & { id?: string },
+        _res: Response,
+        next: NextFunction,
+      ) => {
+        req.id =
+          typeof req.headers['x-request-id'] === 'string'
+            ? req.headers['x-request-id']
+            : 'generated-id'
+        next()
+      },
+    )
+    await app.init()
+
+    await request(
+      app.getHttpServer() as unknown as Parameters<typeof request>[0],
+    )
+      .get('/health')
+      .set('x-request-id', 'http-request-1')
+      .expect(200)
+    expect(healthCheckServiceMock.check).toHaveBeenCalled()
+    expect(loggerMock.warn).not.toHaveBeenCalled()
+
+    const error = new ServiceUnavailableException({
+      status: 'error',
+      details: { redis: { status: 'down', error: 'connection secret' } },
+    })
+    healthCheckServiceMock.check.mockRejectedValueOnce(error)
+    await request(
+      app.getHttpServer() as unknown as Parameters<typeof request>[0],
+    )
+      .get('/health')
+      .set('x-request-id', 'http-request-2')
+      .expect(503)
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'http-request-2',
+        healthResult: {
+          status: 'error',
+          details: { redis: { status: 'down' } },
+        },
+      }),
+      '健康检查失败',
+    )
+
+    await app.close()
+    await moduleRef.close()
   })
 
   it('健康模块可编译并解析其实际依赖', async () => {
@@ -118,16 +200,16 @@ describe('HealthController', () => {
       .compile()
 
     expect(moduleRef.get(HealthCheckService)).toBeDefined()
-    expect(moduleRef.resolve(TypeOrmHealthIndicator)).resolves.toBeDefined()
+    expect(await moduleRef.resolve(TypeOrmHealthIndicator)).toBeDefined()
     expect(moduleRef.get(RedisHealthIndicator)).toBeDefined()
+    await moduleRef.close()
   })
 
   it('接口标记为公开且使用 Terminus 健康检查装饰器', () => {
-    const metadata = Reflect.getMetadata('isPublic', HealthController.prototype.health)
-    const headers = Reflect.getMetadata(
-      '__headers__',
-      HealthController.prototype.health,
-    )
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const method = HealthController.prototype.health as unknown as object
+    const metadata = Reflect.getMetadata('isPublic', method) as boolean
+    const headers = Reflect.getMetadata('__headers__', method) as unknown
     expect(metadata).toBe(true)
     expect(headers).toEqual([
       { name: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
