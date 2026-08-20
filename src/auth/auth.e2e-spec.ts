@@ -25,6 +25,7 @@ import { UsersService } from '../users/users.service'
 import { AuthController } from './auth.controller'
 import { JwtAuthGuard } from './auth.guard'
 import { AuthService } from './auth.service'
+import { CaptchaService } from './captcha.service'
 import { JwtStrategy } from './jwt.strategy'
 
 @Controller('home')
@@ -61,6 +62,7 @@ describe('认证 E2E', () => {
     redisMock.set.mockImplementation((key: string, value: string) => {
       sessionJtis.set(key, value)
     })
+
     redisMock.del.mockImplementation((key: string) => {
       sessionJtis.delete(key)
     })
@@ -77,6 +79,7 @@ describe('认证 E2E', () => {
           load: [
             () => ({
               jwt: { secret: 'test-secret', accessExpiresIn: 604800 },
+              captcha: { expiresIn: 300 },
             }),
           ],
         }),
@@ -84,6 +87,7 @@ describe('认证 E2E', () => {
       controllers: [AuthController, UsersController, HomeController],
       providers: [
         AuthService,
+        { provide: CaptchaService, useValue: { verify: jest.fn() } },
         UsersService,
         JwtStrategy,
         { provide: APP_GUARD, useClass: JwtAuthGuard },
@@ -124,9 +128,13 @@ describe('认证 E2E', () => {
   const loginAndGetSession = async () => {
     userRepo.findOne.mockResolvedValue(mockUser())
     userRepo.update.mockResolvedValue({ affected: 1 })
+    const captcha = 'captcha-id'
+    const captchaCode = '1234'
     const res = await request(httpServer).post('/auth/login').send({
       email: 'admin@example.com',
       password: '123456',
+      captchaId: captcha,
+      captchaCode,
     })
     const [key, jti] = redisMock.set.mock.calls[
       redisMock.set.mock.calls.length - 1

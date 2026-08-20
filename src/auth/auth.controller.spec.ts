@@ -1,10 +1,15 @@
 import { Test } from '@nestjs/testing'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
+import { CaptchaService } from './captcha.service'
 
 const authServiceMock = {
   login: jest.fn(),
   logout: jest.fn(),
+}
+
+const captchaServiceMock = {
+  create: jest.fn(),
 }
 
 describe('AuthController', () => {
@@ -13,7 +18,10 @@ describe('AuthController', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: authServiceMock }],
+      providers: [
+        { provide: AuthService, useValue: authServiceMock },
+        { provide: CaptchaService, useValue: captchaServiceMock },
+      ],
     }).compile()
     controller = moduleRef.get(AuthController)
   })
@@ -27,11 +35,21 @@ describe('AuthController', () => {
     })
     const req = { ip: '10.0.0.1', socket: {} }
     const result = await controller.login(
-      { email: 'a@b.com', password: '123456' },
+      {
+        email: 'a@b.com',
+        password: '123456',
+        captchaId: 'id',
+        captchaCode: '1234',
+      },
       req as never,
     )
     expect(authServiceMock.login).toHaveBeenCalledWith(
-      { email: 'a@b.com', password: '123456' },
+      {
+        email: 'a@b.com',
+        password: '123456',
+        captchaId: 'id',
+        captchaCode: '1234',
+      },
       '10.0.0.1',
     )
     expect(result).toEqual({ access_token: 'at', user: { id: 1 } })

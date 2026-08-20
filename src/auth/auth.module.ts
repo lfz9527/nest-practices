@@ -8,6 +8,7 @@ import { User } from '../users/user.entity'
 import { AuthController } from './auth.controller'
 import { JwtAuthGuard } from './auth.guard'
 import { AuthService } from './auth.service'
+import { CaptchaService } from './captcha.service'
 import { JwtStrategy } from './jwt.strategy'
 
 @Module({
@@ -25,6 +26,7 @@ import { JwtStrategy } from './jwt.strategy'
   controllers: [AuthController],
   providers: [
     AuthService,
+    CaptchaService,
     JwtStrategy,
     // 全局守卫：所有未标 @Public 的接口默认要求登录
     { provide: APP_GUARD, useClass: JwtAuthGuard },

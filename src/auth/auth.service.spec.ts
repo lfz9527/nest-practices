@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { hash } from 'bcryptjs'
 import { User } from '../users/user.entity'
 import { RedisService } from '../redis/redis.service'
+import { CaptchaService } from './captcha.service'
 import {
   AccessTokenPayload,
   AuthService,
@@ -24,6 +25,10 @@ const jwtMock = {
 const userRepoMock = {
   findOne: jest.fn(),
   update: jest.fn(),
+}
+
+const captchaMock = {
+  verify: jest.fn().mockResolvedValue(undefined),
 }
 
 const configMock = {
@@ -46,6 +51,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwtMock },
         { provide: ConfigService, useValue: configMock },
         { provide: RedisService, useValue: redisMock },
+        { provide: CaptchaService, useValue: captchaMock },
       ],
     }).compile()
     service = moduleRef.get(AuthService)
@@ -75,11 +81,16 @@ describe('AuthService', () => {
     userRepoMock.update.mockResolvedValue({ affected: 1 })
 
     const result = await service.login(
-      { email: 'admin@example.com', password: '123456' },
+      {
+        email: 'admin@example.com',
+        password: '123456',
+        captchaId: 'id',
+        captchaCode: '1234',
+      },
       '127.0.0.1',
     )
 
-    expect(result.access_token).toBe('access-token')
+    expect(captchaMock.verify).toHaveBeenCalledWith('id', '1234')
     expect(result).not.toHaveProperty('refresh_token')
     expect(result.user).not.toHaveProperty('password')
     expect(jwtMock.signAsync).toHaveBeenCalledWith(
@@ -117,11 +128,21 @@ describe('AuthService', () => {
     userRepoMock.update.mockResolvedValue({ affected: 1 })
 
     await service.login(
-      { email: 'admin@example.com', password: '123456' },
+      {
+        email: 'admin@example.com',
+        password: '123456',
+        captchaId: 'id',
+        captchaCode: '1234',
+      },
       '127.0.0.1',
     )
     await service.login(
-      { email: 'admin@example.com', password: '123456' },
+      {
+        email: 'admin@example.com',
+        password: '123456',
+        captchaId: 'id',
+        captchaCode: '1234',
+      },
       '127.0.0.1',
     )
 
@@ -149,7 +170,15 @@ describe('AuthService', () => {
   it('登录失败：邮箱不存在抛 BIZ_ERROR 且文案不暴露账号状态', async () => {
     userRepoMock.findOne.mockResolvedValue(null)
     await expect(
-      service.login({ email: 'x@y.com', password: '123456' }, ''),
+      service.login(
+        {
+          email: 'x@y.com',
+          password: '123456',
+          captchaId: 'id',
+          captchaCode: '1234',
+        },
+        '',
+      ),
     ).rejects.toMatchObject({ code: -1, message: '账号或密码错误' })
     expect(redisMock.set).not.toHaveBeenCalled()
   })
@@ -164,7 +193,15 @@ describe('AuthService', () => {
   it('登录失败：账号停用', async () => {
     userRepoMock.findOne.mockResolvedValue(buildUser({ status: 1 }))
     await expect(
-      service.login({ email: 'admin@example.com', password: '123456' }, ''),
+      service.login(
+        {
+          email: 'admin@example.com',
+          password: '123456',
+          captchaId: 'id',
+          captchaCode: '1234',
+        },
+        '',
+      ),
     ).rejects.toMatchObject({ code: -1, message: '账号已被停用' })
   })
 

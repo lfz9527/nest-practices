@@ -9,6 +9,7 @@ import { AppError } from '../common/errors/app-error'
 import { ErrorCodes } from '../common/errors/error-codes'
 import { RedisService } from '../redis/redis.service'
 import { User } from '../users/user.entity'
+import { CaptchaService } from './captcha.service'
 import { LoginDto } from './dto/login.dto'
 
 // 会话在 Redis 中的 key 前缀
@@ -31,9 +32,11 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly captchaService: CaptchaService,
   ) {}
 
   async login(loginDto: LoginDto, ip: string) {
+    await this.captchaService.verify(loginDto.captchaId, loginDto.captchaCode)
     const user = await this.userRepo.findOne({
       where: { email: loginDto.email, delFlag: 0 },
     })

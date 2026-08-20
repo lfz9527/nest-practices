@@ -1,12 +1,23 @@
-import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common'
 import type { Request } from 'express'
 import { AuthService } from './auth.service'
+import { CaptchaService } from './captcha.service'
 import { LoginDto } from './dto/login.dto'
 import { Public } from './public.decorator'
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly captchaService: CaptchaService,
+  ) {}
+
+  @Public()
+  @Get('captcha')
+  @HttpCode(200)
+  async captcha() {
+    return this.captchaService.create()
+  }
 
   @Public()
   @Post('login')
