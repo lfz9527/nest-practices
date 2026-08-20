@@ -7,6 +7,7 @@ import { DatabaseModule } from '../database/database.module'
 import { RedisModule } from '../redis/redis.module'
 import { HealthModule } from '../health/health.module'
 import { UsersModule } from '../users/users.module'
+import { MailModule } from '../mail/mail.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -28,6 +29,8 @@ import { AppService } from './app.service'
     RedisModule,
     // 健康检查
     HealthModule,
+    // 邮件发送
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
