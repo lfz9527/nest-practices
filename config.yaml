@@ -33,6 +33,14 @@ redis:
   host: 127.0.0.1
   port: 6379
   password: 'root'
+  # 建立 Redis TCP 连接的超时时间，单位：毫秒
+  connectTimeout: 5000
+  # 单条 Redis 命令的超时时间，单位：毫秒
+  commandTimeout: 3000
+  # 自动重连的最大尝试次数，达到上限后停止重连但不退出应用
+  maxRetries: 5
+  # 单次重连退避时间的最大值，单位：毫秒
+  retryDelayMax: 2000
 
 # JWT 配置
 jwt:
@@ -40,3 +48,19 @@ jwt:
   secret: 'nest-practices-secret-key'
   # access token 有效期（单位：秒，7 天）
   accessExpiresIn: 604800
+
+# 邮件发送配置
+mail:
+  smtp:
+    # SMTP 服务器地址，例如 smtp.qq.com、smtp.163.com
+    host: smtp.example.com
+    # SMTP 服务端口：465 通常使用 SSL，587 通常使用 STARTTLS
+    port: 465
+    # 是否启用 SSL/TLS 加密；465 端口通常配置为 true
+    secure: true
+    # SMTP 登录账号，通常为发件人邮箱
+    user: sender@example.com
+    # SMTP 登录密码或授权码，生产环境禁止提交真实凭据
+    pass: ''
+    # 邮件默认发件人地址
+    from: sender@example.com

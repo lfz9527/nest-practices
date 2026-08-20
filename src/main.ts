@@ -7,16 +7,21 @@ if (platform() === 'win32') {
   process.stdout.setDefaultEncoding('utf-8')
 }
 
-import { ValidationPipe, Logger as NestLogger } from '@nestjs/common'
+import { Logger as NestLogger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory } from '@nestjs/core'
 import { Logger } from 'nestjs-pino'
 import { AppModule } from './app/app.module'
+import { configureApplication } from './main.setup'
 import { ErrorHandler } from './common/errors/error-handler'
 
-async function bootstrap() {
+export async function bootstrap(
+  createApp: typeof NestFactory.create = NestFactory.create.bind(
+    NestFactory,
+  ) as typeof NestFactory.create,
+) {
   // bufferLogs：启动期日志先缓冲，待 pino 接管后统一输出
-  const app = await NestFactory.create(AppModule, {
+  const app = await createApp(AppModule, {
     bufferLogs: true,
     // false → 回退日志器：启动失败时缓冲的日志刷新到此输出，不再被吞
     logger: new NestLogger('Bootstrap', { timestamp: false }),
@@ -28,8 +33,7 @@ async function bootstrap() {
   const port = configService.get<number>('port') ?? 3000
   const baseUrl = `http://localhost:${port}`
 
-  app.useLogger(logger)
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
+  configureApplication(app, logger)
 
   // 先注册退出动作、再挂进程钩子，保证钩子触发时退出动作必已就绪（规格 §3）
   errorHandler.registerShutdown(async () => {
@@ -53,8 +57,10 @@ async function bootstrap() {
     `,
   })
 }
-bootstrap().catch((error: unknown) => {
-  // bootstrap 阶段 pino 可能尚未就绪，console 是唯一可靠输出（规格 §5）
-  console.error(error)
-  process.exit(1)
-})
+if (!process.env.JEST_WORKER_ID) {
+  bootstrap().catch((error: unknown) => {
+    // bootstrap 阶段 pino 可能尚未就绪，console 是唯一可靠输出（规格 §5）
+    console.error(error)
+    process.exit(1)
+  })
+}

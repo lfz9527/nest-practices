@@ -40,7 +40,7 @@ export class ErrorHandler {
 
   private normalize(error: unknown): {
     httpCode: number
-    body: ResponseBody
+    body: ResponseBody<object | null>
     logLevel: 'warn' | 'error' | 'fatal'
   } {
     if (error instanceof AppError) {
@@ -54,12 +54,15 @@ export class ErrorHandler {
     if (error instanceof HttpException) {
       // 系统错误（框架自发异常）
       const status = error.getStatus()
+      const response = error.getResponse()
       return {
         httpCode: status,
         body: {
           code: status,
           message: this.extractMessage(error),
-          data: null,
+          data: this.isHealthResponse(response, status)
+            ? this.extractHealthData(response)
+            : null,
         },
         logLevel: 'error',
       }
@@ -73,6 +76,53 @@ export class ErrorHandler {
         data: null,
       },
       logLevel: 'fatal',
+    }
+  }
+
+  private isHealthResponse(response: string | object, status: number): boolean {
+    if (typeof response !== 'object' || response === null) {
+      return false
+    }
+    const value = response as Record<string, unknown>
+    return (
+      status === 503 &&
+      value.status === 'error' &&
+      typeof value.info === 'object' &&
+      value.info !== null &&
+      typeof value.error === 'object' &&
+      value.error !== null &&
+      typeof value.details === 'object' &&
+      value.details !== null
+    )
+  }
+
+  private extractHealthData(response: string | object): object | null {
+    if (typeof response !== 'object' || response === null) {
+      return null
+    }
+
+    const value = response as Record<string, unknown>
+    const details = value.details
+    if (typeof details !== 'object' || details === null) {
+      return null
+    }
+
+    const safeDetails: Record<string, { status: 'up' | 'down' }> = {}
+    for (const [name, detail] of Object.entries(details)) {
+      if (typeof detail !== 'object' || detail === null) {
+        continue
+      }
+      const status = (detail as { status?: unknown }).status
+      if (status === 'up' || status === 'down') {
+        safeDetails[name] = { status }
+      }
+    }
+
+    return {
+      status: typeof value.status === 'string' ? value.status : 'error',
+      info: {},
+      error: {},
+      details: safeDetails,
     }
   }
 
