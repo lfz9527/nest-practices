@@ -86,8 +86,8 @@ describe('RedisService', () => {
     }
 
     expect(config.redis).toMatchObject({
-      connectTimeout: 5000,
-      commandTimeout: 3000,
+      connectTimeout: 10000,
+      commandTimeout: 10000,
       maxRetries: 5,
       retryDelayMax: 2000,
     })

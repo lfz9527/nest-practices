@@ -4,7 +4,7 @@
 env: development
 
 # 服务端口
-port: 3000
+port: 3006
 
 # MySQL 数据库连接
 database:
@@ -34,9 +34,9 @@ redis:
   port: 6379
   password: 'root'
   # 建立 Redis TCP 连接的超时时间，单位：毫秒
-  connectTimeout: 5000
+  connectTimeout: 10000
   # 单条 Redis 命令的超时时间，单位：毫秒
-  commandTimeout: 3000
+  commandTimeout: 10000
   # 自动重连的最大尝试次数，达到上限后停止重连但不退出应用
   maxRetries: 5
   # 单次重连退避时间的最大值，单位：毫秒
