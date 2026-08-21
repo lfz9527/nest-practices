@@ -13,7 +13,10 @@ type RequestWithId = IncomingMessage & {
 
 type ResponseWithStatus = ServerResponse
 
-const ignoredPaths = ['/.well-known/appspecific/com.chrome.devtools.json']
+const ignoredPaths = [
+  '/.well-known/appspecific/com.chrome.devtools.json',
+  '/favicon.ico',
+]
 
 @Module({
   imports: [
