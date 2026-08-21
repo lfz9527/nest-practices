@@ -8,7 +8,7 @@ import { User } from '../users/user.entity'
 // 初始用户配置（按需修改）
 const INIT_USER = {
   nickname: 'admin',
-  email: '1397118980@qq.com',
+  email: '123456@qq.com',
   password: '123456',
 }
 
