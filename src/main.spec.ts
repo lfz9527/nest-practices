@@ -11,6 +11,7 @@ describe('bootstrap application setup', () => {
       useLogger: jest.fn(() => calls.push('logger')),
       use: jest.fn(() => calls.push('use')),
       useGlobalPipes: jest.fn(() => calls.push('pipes')),
+      enableCors: jest.fn(() => calls.push('cors')),
       enableShutdownHooks: jest.fn(() => calls.push('shutdown')),
     }
 
@@ -18,7 +19,7 @@ describe('bootstrap application setup', () => {
 
     expect(app.enableShutdownHooks).toHaveBeenCalledWith(['SIGTERM', 'SIGINT'])
     expect(calls.indexOf('shutdown')).toBeLessThan(calls.length)
-    expect(calls).toEqual(['logger', 'use', 'pipes', 'shutdown'])
+    expect(calls).toEqual(['logger', 'use', 'pipes', 'cors', 'shutdown'])
   })
 
   it('实际 bootstrap 在 listen 前启用 shutdown hooks', async () => {
@@ -35,6 +36,7 @@ describe('bootstrap application setup', () => {
       useLogger: jest.fn(),
       use: jest.fn(),
       useGlobalPipes: jest.fn(),
+      enableCors: jest.fn(),
       enableShutdownHooks: jest.fn(() => calls.push('shutdown')),
       listen: jest.fn(() => {
         calls.push('listen')

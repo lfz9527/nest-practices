@@ -14,5 +14,7 @@ export function configureApplication(
     res.status(204).end()
   })
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
+  // 前后端分离部署，所有接口放开跨域（允许任意来源）
+  app.enableCors()
   app.enableShutdownHooks(['SIGTERM', 'SIGINT'])
 }
