@@ -191,9 +191,9 @@ describe('认证 E2E', () => {
     const body = res.body as { code: number; message: string; data: unknown }
     expect(body.code).toBe(-1)
     expect(body.data).toBeNull()
-    // ValidationPipe 校验消息：多个字段错误以 ; 拼接
-    expect(body.message).toContain('邮箱格式不正确')
+    // ValidationPipe 校验消息：缺失的必填字段错误以 ; 拼接（email 仅校验必填，非空即通过）
     expect(body.message).toContain('验证码标识不能为空')
+    expect(body.message).toContain('验证码不能为空')
   })
 
   it('携带 access token 访问受保护接口：成功', async () => {

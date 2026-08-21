@@ -64,7 +64,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| email | string | 是 | 登录邮箱，须为邮箱格式 |
+| email | string | 是 | 登录邮箱 |
 | password | string | 是 | 登录密码 |
 | captchaId | string | 是 | 验证码标识，来自 `GET /auth/captcha` |
 | captchaCode | string | 是 | 验证码内容（4 位数字） |
@@ -119,7 +119,7 @@
 | 验证码错误或已过期 | `{ "code": -1, "message": "验证码错误或已过期", "data": null }` |
 | 账号或密码错误 | `{ "code": -1, "message": "账号或密码错误", "data": null }` |
 | 账号已被停用 | `{ "code": -1, "message": "账号已被停用", "data": null }` |
-| 参数不合法 | `{ "code": -1, "message": "邮箱格式不正确", "data": null }` |
+| 参数不合法 | `{ "code": -1, "message": "密码不能为空", "data": null }` |
 
 #### 3. 登出 `POST /auth/logout`（需鉴权）
 
