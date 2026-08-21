@@ -20,7 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
     "clean": "rimraf node_modules  pnpm-lock.yaml || exit 0",
-    "redis:link": "bash scripts/redis-link.sh",
+    "redis:link": "scripts/redis-link.bat",
     "prepare": "husky",
     "commit": "git add . && git-cz"
   },
