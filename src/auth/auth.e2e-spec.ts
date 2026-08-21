@@ -183,6 +183,19 @@ describe('认证 E2E', () => {
     expect((res.body as { code: number }).code).toBe(401)
   })
 
+  it('登录参数不合法：校验异常按业务错误形态返回（HTTP 200 + code -1）', async () => {
+    const res = await request(httpServer)
+      .post('/auth/login')
+      .send({ email: 'not-an-email' })
+    expect(res.status).toBe(200)
+    const body = res.body as { code: number; message: string; data: unknown }
+    expect(body.code).toBe(-1)
+    expect(body.data).toBeNull()
+    // ValidationPipe 校验消息：多个字段错误以 ; 拼接
+    expect(body.message).toContain('邮箱格式不正确')
+    expect(body.message).toContain('验证码标识不能为空')
+  })
+
   it('携带 access token 访问受保护接口：成功', async () => {
     const accessToken = await loginAndGetToken()
 

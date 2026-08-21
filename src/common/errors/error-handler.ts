@@ -126,7 +126,8 @@ export class ErrorHandler {
     }
   }
 
-  private extractMessage(exception: HttpException): string {
+  // message 提取口径：供 AllExceptionsFilter 转 AppError 时复用
+  extractMessage(exception: HttpException): string {
     const res = exception.getResponse()
     if (typeof res === 'string') {
       return res

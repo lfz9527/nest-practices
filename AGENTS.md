@@ -54,7 +54,8 @@ src/
 ### 响应契约
 - **成功**: HTTP 200, body `{ code: 0, message: 'ok', data: ... }`
 - **业务错误**: HTTP 200, body `{ code: -1 (or custom), message: '描述', data: null }` — 用 `AppError` 抛出，错误码集中定义于 `common/errors/error-codes.ts`
-- **系统错误**: HTTP 4xx/5xx, body `{ code: 同HTTP状态码, message: '描述', data: null }`
+- **校验异常**: HTTP 200, body `{ code: -1, message: '校验消息', data: null }` — ValidationPipe/ParseIntPipe 等抛出的 400 按业务错误形态返回
+- **系统错误**: HTTP 4xx/5xx（校验 400 除外）, body `{ code: 同HTTP状态码, message: '描述', data: null }`
 - **未知异常**: HTTP 500, body `{ code: 500, message: '服务器内部错误', data: null }` — 不泄露内部细节
 
 ### 错误处理

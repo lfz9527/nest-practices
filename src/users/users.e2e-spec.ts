@@ -83,11 +83,11 @@ describe('错误处理 E2E', () => {
     })
   })
 
-  it('GET /users/abc 参数非法：400 与业务码 400', async () => {
-    const res = await request(httpServer).get('/users/abc').expect(400)
+  it('GET /users/abc 参数非法：校验异常按业务错误形态返回（HTTP 200 + code -1）', async () => {
+    const res = await request(httpServer).get('/users/abc').expect(200)
     const body = res.body as { code: number; message: string; data: unknown }
 
-    expect(body).toMatchObject({ code: 400, data: null })
+    expect(body).toMatchObject({ code: -1, data: null })
   })
 
   it('GET /boom 未知异常：500 与业务码 500，不泄露内部信息', async () => {
