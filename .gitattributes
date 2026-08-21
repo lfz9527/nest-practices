@@ -1,0 +1,2 @@
+# bat 脚本必须保持 CRLF，cmd 解析 LF 换行的批处理会出错（行缓冲错乱）
+*.bat text eol=crlf
