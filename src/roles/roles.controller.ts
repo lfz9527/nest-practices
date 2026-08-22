@@ -34,14 +34,12 @@ export class RolesController {
     return this.rolesService.create(dto)
   }
 
-  // 二次路由约束：接口仅允许 GET/POST（网关/客户端限制），更新/删除用 POST 路径实现
   @Post('update')
   @HttpCode(200)
   update(@Body() dto: UpdateRoleDto) {
     return this.rolesService.update(dto)
   }
 
-  // 二次路由约束：接口仅允许 GET/POST（网关/客户端限制），更新/删除用 POST 路径实现
   @Post('delete')
   @HttpCode(200)
   remove(@Body() dto: DeleteRoleDto) {
