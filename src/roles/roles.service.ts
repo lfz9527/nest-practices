@@ -58,10 +58,12 @@ export class RolesService {
     return this.findById(dto.id)
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<null> {
     await this.findById(id)
     await this.roleRepo.update(id, { delFlag: 2 })
     await this.userRepo.update({ roleId: id }, { roleId: null })
+    // 返回 null 使响应体含 data: null，符合统一响应契约
+    return null
   }
 
   // roleKey 唯一（含软删除数据），保证 (roleKey, delFlag) 唯一约束不冲突
