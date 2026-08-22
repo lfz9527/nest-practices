@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { hash } from 'bcryptjs'
+import { Role } from '../roles/role.entity'
 import { User } from '../users/user.entity'
 import { RedisService } from '../redis/redis.service'
 import { CaptchaService } from './captcha.service'
@@ -27,6 +28,10 @@ const userRepoMock = {
   update: jest.fn(),
 }
 
+const roleRepoMock = {
+  findOne: jest.fn(),
+}
+
 const captchaMock = {
   verify: jest.fn().mockResolvedValue(undefined),
 }
@@ -48,6 +53,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: getRepositoryToken(User), useValue: userRepoMock },
+        { provide: getRepositoryToken(Role), useValue: roleRepoMock },
         { provide: JwtService, useValue: jwtMock },
         { provide: ConfigService, useValue: configMock },
         { provide: RedisService, useValue: redisMock },
@@ -203,6 +209,55 @@ describe('AuthService', () => {
         '',
       ),
     ).rejects.toMatchObject({ code: -1, message: '账号已被停用' })
+  })
+
+  it('登录成功：用户带角色时返回 role 简要信息', async () => {
+    userRepoMock.findOne.mockResolvedValue(buildUser({ roleId: 5 }))
+    roleRepoMock.findOne.mockResolvedValue({
+      id: 5,
+      name: '管理员',
+      roleKey: 'admin',
+    })
+    jwtMock.signAsync.mockResolvedValue('access-token')
+    redisMock.set.mockResolvedValue(undefined)
+    userRepoMock.update.mockResolvedValue({ affected: 1 })
+
+    const result = await service.login(
+      {
+        email: 'admin@example.com',
+        password: '123456',
+        captchaId: 'id',
+        captchaCode: '1234',
+      },
+      '127.0.0.1',
+    )
+
+    expect(roleRepoMock.findOne).toHaveBeenCalledWith({
+      where: { id: 5, delFlag: 0 },
+    })
+    expect(result.user).toMatchObject({
+      role: { id: 5, name: '管理员', roleKey: 'admin' },
+    })
+  })
+
+  it('登录成功：用户无角色时 role 为 null', async () => {
+    userRepoMock.findOne.mockResolvedValue(buildUser())
+    jwtMock.signAsync.mockResolvedValue('access-token')
+    redisMock.set.mockResolvedValue(undefined)
+    userRepoMock.update.mockResolvedValue({ affected: 1 })
+
+    const result = await service.login(
+      {
+        email: 'admin@example.com',
+        password: '123456',
+        captchaId: 'id',
+        captchaCode: '1234',
+      },
+      '127.0.0.1',
+    )
+
+    expect(result.user).toMatchObject({ role: null })
+    expect(roleRepoMock.findOne).not.toHaveBeenCalled()
   })
 
   it('登出：删除 Redis 中的会话 jti', async () => {

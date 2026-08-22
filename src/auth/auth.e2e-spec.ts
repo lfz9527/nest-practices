@@ -257,4 +257,35 @@ describe('认证 E2E', () => {
     expect((invalidA.body as { code: number }).code).toBe(401)
     expect((validB.body as { code: number }).code).toBe(0)
   })
+
+  it('登录：用户带角色时返回 role 简要信息', async () => {
+    userRepo.findOne.mockResolvedValue({ ...mockUser(), roleId: 5 })
+    userRepo.update.mockResolvedValue({ affected: 1 })
+    roleRepo.findOne.mockResolvedValue({
+      id: 5,
+      name: '管理员',
+      roleKey: 'admin',
+    })
+
+    const res = await request(httpServer).post('/auth/login').send({
+      email: 'admin@example.com',
+      password: '123456',
+      captchaId: 'captcha-id',
+      captchaCode: '1234',
+    })
+
+    expect(res.status).toBe(200)
+    const body = res.body as {
+      code: number
+      data: {
+        user: { role: { id: number; name: string; roleKey: string } | null }
+      }
+    }
+    expect(body.code).toBe(0)
+    expect(body.data.user.role).toEqual({
+      id: 5,
+      name: '管理员',
+      roleKey: 'admin',
+    })
+  })
 })

@@ -8,6 +8,7 @@ import { Repository } from 'typeorm'
 import { AppError } from '../common/errors/app-error'
 import { ErrorCodes } from '../common/errors/error-codes'
 import { RedisService } from '../redis/redis.service'
+import { Role, RoleInfo } from '../roles/role.entity'
 import { User } from '../users/user.entity'
 import { CaptchaService } from './captcha.service'
 import { LoginDto } from './dto/login.dto'
@@ -29,6 +30,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Role)
+    private readonly roleRepo: Repository<Role>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
@@ -69,13 +72,28 @@ export class AuthService {
       lastLoginTime: new Date(),
     })
 
+    const role = await this.findRole(user.roleId)
     const { password: _password, ...userWithoutPassword } = user
     void _password
-    return { access_token: accessToken, user: userWithoutPassword }
+    return { access_token: accessToken, user: { ...userWithoutPassword, role } }
   }
 
   async logout(userId: number, sessionId: string): Promise<void> {
     await this.redisService.del(`${SESSION_KEY_PREFIX}${userId}:${sessionId}`)
+  }
+
+  // 查询用户角色简要信息，无角色或角色已删除返回 null
+  private async findRole(roleId: number | null): Promise<RoleInfo | null> {
+    if (!roleId) {
+      return null
+    }
+    const role = await this.roleRepo.findOne({
+      where: { id: roleId, delFlag: 0 },
+    })
+    if (!role) {
+      return null
+    }
+    return { id: role.id, name: role.name, roleKey: role.roleKey }
   }
 
   private signAccess(
