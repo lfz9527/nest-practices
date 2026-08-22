@@ -1,18 +1,22 @@
 import { Test } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { AppError } from '../common/errors/app-error'
+import { Role } from '../roles/role.entity'
 import { User } from './user.entity'
 import { UsersService } from './users.service'
 
 describe('UsersService', () => {
   let service: UsersService
   const userRepo = { findOne: jest.fn() }
+  const roleRepo = { findOne: jest.fn() }
 
   beforeEach(async () => {
+    jest.clearAllMocks()
     const moduleRef = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(Role), useValue: roleRepo },
       ],
     }).compile()
     service = moduleRef.get(UsersService)
@@ -49,6 +53,45 @@ describe('UsersService', () => {
       await expect(service.findByEmail('no@exists.com')).rejects.toThrow(
         AppError,
       )
+    })
+  })
+
+  describe('findById 返回角色', () => {
+    it('用户带 roleId 时返回 { id, name, roleKey }', async () => {
+      userRepo.findOne.mockResolvedValue({ id: 1, roleId: 5, delFlag: 0 })
+      roleRepo.findOne.mockResolvedValue({
+        id: 5,
+        name: '管理员',
+        roleKey: 'admin',
+      })
+
+      const result = await service.findById(1)
+
+      expect(result).toMatchObject({
+        id: 1,
+        role: { id: 5, name: '管理员', roleKey: 'admin' },
+      })
+      expect(roleRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 5, delFlag: 0 },
+      })
+    })
+
+    it('roleId 为空时不查询角色，role 为 null', async () => {
+      userRepo.findOne.mockResolvedValue({ id: 1, roleId: null, delFlag: 0 })
+
+      const result = await service.findById(1)
+
+      expect(result.role).toBeNull()
+      expect(roleRepo.findOne).not.toHaveBeenCalled()
+    })
+
+    it('角色已被删除时 role 为 null', async () => {
+      userRepo.findOne.mockResolvedValue({ id: 1, roleId: 5, delFlag: 0 })
+      roleRepo.findOne.mockResolvedValue(null)
+
+      const result = await service.findById(1)
+
+      expect(result.role).toBeNull()
     })
   })
 })

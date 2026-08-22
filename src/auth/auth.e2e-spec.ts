@@ -19,6 +19,7 @@ import { AllExceptionsFilter } from '../common/errors/all-exceptions.filter'
 import { ErrorHandler } from '../common/errors/error-handler'
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor'
 import { RedisService } from '../redis/redis.service'
+import { Role } from '../roles/role.entity'
 import { User } from '../users/user.entity'
 import { UsersController } from '../users/users.controller'
 import { UsersService } from '../users/users.service'
@@ -40,6 +41,7 @@ describe('认证 E2E', () => {
   let app: INestApplication
   let httpServer: Server
   const userRepo = { findOne: jest.fn(), update: jest.fn() }
+  const roleRepo = { findOne: jest.fn() }
   const redisMock = {
     get: jest.fn(),
     set: jest.fn(),
@@ -92,6 +94,7 @@ describe('认证 E2E', () => {
         JwtStrategy,
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(Role), useValue: roleRepo },
         { provide: RedisService, useValue: redisMock },
         {
           provide: PinoLogger,

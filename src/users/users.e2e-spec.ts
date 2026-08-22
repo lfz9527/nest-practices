@@ -14,6 +14,7 @@ import request from 'supertest'
 import { AllExceptionsFilter } from '../common/errors/all-exceptions.filter'
 import { ErrorHandler } from '../common/errors/error-handler'
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor'
+import { Role } from '../roles/role.entity'
 import { User } from './user.entity'
 import { UsersController } from './users.controller'
 import { UsersService } from './users.service'
@@ -31,6 +32,7 @@ describe('错误处理 E2E', () => {
   let app: INestApplication
   let httpServer: Server
   const userRepo = { findOne: jest.fn() }
+  const roleRepo = { findOne: jest.fn() }
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -38,6 +40,7 @@ describe('错误处理 E2E', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(Role), useValue: roleRepo },
         // 桩掉日志：e2e 只验响应契约，不落真实日志
         {
           provide: PinoLogger,
@@ -67,7 +70,29 @@ describe('错误处理 E2E', () => {
     const res = await request(httpServer).get('/users/1').expect(200)
     const body = res.body as { code: number; message: string; data: unknown }
 
-    expect(body).toEqual({ code: 0, message: 'ok', data: user })
+    expect(body).toEqual({
+      code: 0,
+      message: 'ok',
+      data: { ...user, role: null },
+    })
+  })
+
+  it('GET /users/1 用户带角色：data.role 返回 { id, name, roleKey }', async () => {
+    userRepo.findOne.mockResolvedValue({ id: 1, nickname: '甄嬛', roleId: 5 })
+    roleRepo.findOne.mockResolvedValue({
+      id: 5,
+      name: '管理员',
+      roleKey: 'admin',
+    })
+
+    const res = await request(httpServer).get('/users/1').expect(200)
+    const body = res.body as {
+      code: number
+      data: { role: { id: number; name: string; roleKey: string } }
+    }
+
+    expect(body.code).toBe(0)
+    expect(body.data.role).toEqual({ id: 5, name: '管理员', roleKey: 'admin' })
   })
 
   it('GET /users/999 用户不存在：HTTP 200 与业务码 -1', async () => {
