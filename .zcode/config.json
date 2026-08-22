@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "enabled": true,
+    "timeoutMs": 5000,
+    "events": {
+      "PostToolUse": [
+        {
+          "matcher": "Edit|Write|ApplyPatch",
+          "hooks": [
+            {
+              "type": "process",
+              "command": "node",
+              "args": ["${ZCODE_PROJECT_DIR}/.zcode/hooks/api-docs-trigger.js"],
+              "timeoutMs": 5000
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
