@@ -58,6 +58,10 @@ src/
 - **系统错误**: HTTP 4xx/5xx（校验 400 除外）, body `{ code: 同HTTP状态码, message: '描述', data: null }`
 - **未知异常**: HTTP 500, body `{ code: 500, message: '服务器内部错误', data: null }` — 不泄露内部细节
 
+### 路由约束
+- 接口 HTTP 方法仅允许 GET、POST，禁用 PATCH/PUT/DELETE 等其余方法（网关/客户端限制）
+- 需要特殊路由（如更新/删除通过 POST 路径实现）时，必须添加注释说明原因
+
 ### 错误处理
 - 唯一错误模型 `AppError`，用 `code` 属性区分（不要建子类）
 - `isOperational` 标记可信度：可信错误不触发进程退出；不可信错误（裸 Error、`isOperational=false`）触发优雅关闭
