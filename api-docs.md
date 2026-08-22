@@ -1,7 +1,7 @@
 # nest-practices 接口文档
 
 > 前端对接用。Base URL：`http://localhost:3006`
-> 初始账号：`1397118980@qq.com / 123456`
+> 初始账号：`123456@qq.com / 123456`
 
 ## 一、通用约定
 
@@ -73,7 +73,7 @@
 
 ```json
 {
-  "email": "1397118980@qq.com",
+  "email": "123456@qq.com",
   "password": "123456",
   "captchaId": "1a2b3c4d-1111-2222-3333-444455556666",
   "captchaCode": "1234"
@@ -92,6 +92,8 @@
 | data.user.gender | number | 性别：0=男 1=女 2=未知 |
 | data.user.status | number | 账号状态：0=正常 1=停用 |
 | data.user.lastLoginTime | string \| null | 最近登录时间 |
+| data.user.roleId | number \| null | 角色 ID，未分配角色为 null |
+| data.user.role | object \| null | 角色信息 `{ id, name, roleKey }`，未分配角色为 null |
 
 ```json
 {
@@ -102,11 +104,13 @@
     "user": {
       "id": 1,
       "nickname": "admin",
-      "email": "1397118980@qq.com",
+      "email": "123456@qq.com",
       "gender": 0,
       "avatar": "",
       "status": 0,
-      "lastLoginTime": "2026-08-22T06:00:00.000Z"
+      "lastLoginTime": "2026-08-22T06:00:00.000Z",
+      "roleId": 1,
+      "role": { "id": 1, "name": "管理员", "roleKey": "admin" }
     }
   }
 }
@@ -165,6 +169,8 @@
 | data.gender | number | 性别：0=男 1=女 2=未知 |
 | data.status | number | 账号状态：0=正常 1=停用 |
 | data.lastLoginTime | string \| null | 最近登录时间 |
+| data.roleId | number \| null | 角色 ID，未分配角色为 null |
+| data.role | object \| null | 角色信息 `{ id, name, roleKey }`，未分配角色为 null |
 | data.createdAt | string | 注册时间 |
 | data.updatedAt | string | 更新时间 |
 
@@ -175,11 +181,13 @@
   "data": {
     "id": 1,
     "nickname": "admin",
-    "email": "1397118980@qq.com",
+    "email": "123456@qq.com",
     "gender": 0,
     "avatar": "",
     "status": 0,
     "lastLoginTime": "2026-08-22T06:00:00.000Z",
+    "roleId": 1,
+    "role": { "id": 1, "name": "管理员", "roleKey": "admin" },
     "createdAt": "2026-08-01T06:00:00.000Z",
     "updatedAt": "2026-08-22T06:00:00.000Z"
   }
@@ -286,6 +294,218 @@
 
 ---
 
+### 模块五：角色（roles）
+
+> 职责：角色管理。用户与角色一对多关联（一个用户一个角色），角色信息会随登录/用户查询返回。
+> 接口前缀：`/roles`
+> 说明：受网关限制，本模块接口仅使用 GET/POST 方法，更新/删除通过 POST 路径实现。
+
+#### 7. 角色分页列表 `GET /roles`（需鉴权）
+
+**请求参数：**（Query）
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| page | number | 否 | 页码，默认 1，最小 1 |
+| pageSize | number | 否 | 每页条数，默认 10，1-100 |
+| name | string | 否 | 按角色名称模糊筛选 |
+| status | number | 否 | 按状态筛选：0=正常 1=停用 |
+
+**成功响应：**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| data.list[].id | number | 角色 ID |
+| data.list[].name | string | 角色名称 |
+| data.list[].roleKey | string | 角色编码（唯一，如 admin） |
+| data.list[].status | number | 状态：0=正常 1=停用 |
+| data.list[].sort | number | 显示顺序（升序排列） |
+| data.list[].remark | string | 备注 |
+| data.list[].createdAt | string | 创建时间 |
+| data.list[].updatedAt | string | 更新时间 |
+| data.total | number | 总条数 |
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "name": "管理员",
+        "roleKey": "admin",
+        "status": 0,
+        "sort": 0,
+        "remark": "",
+        "createdAt": "2026-08-22T00:00:00.000Z",
+        "updatedAt": "2026-08-22T00:00:00.000Z"
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+**失败响应：**
+
+| 场景 | 示例 |
+|---|---|
+| 未登录或 token 失效 | `{ "code": 401, "message": "未登录或登录状态过期", "data": null }` |
+| 参数不合法 | `{ "code": -1, "message": "每页条数最大为 100", "data": null }` |
+
+#### 8. 角色详情 `GET /roles/:id`（需鉴权）
+
+**请求参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| id（路径参数） | number | 是 | 角色 ID，非数字返回 400 |
+
+**成功响应：**
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": 1,
+    "name": "管理员",
+    "roleKey": "admin",
+    "status": 0,
+    "sort": 0,
+    "remark": "",
+    "createdAt": "2026-08-22T00:00:00.000Z",
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  }
+}
+```
+
+**失败响应：**
+
+| 场景 | 示例 |
+|---|---|
+| 角色不存在 | `{ "code": -1, "message": "角色 999 不存在", "data": null }` |
+| 未登录或 token 失效 | `{ "code": 401, "message": "未登录或登录状态过期", "data": null }` |
+
+#### 9. 创建角色 `POST /roles`（需鉴权）
+
+**请求参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| name | string | 是 | 角色名称，1-30 字符 |
+| roleKey | string | 是 | 角色编码，1-50 字符，唯一（含已删除角色） |
+| status | number | 否 | 状态：0=正常 1=停用，默认 0 |
+| sort | number | 否 | 显示顺序，默认 0 |
+| remark | string | 否 | 备注，最长 255 字符，默认 '' |
+
+**请求示例：**
+
+```json
+{
+  "name": "运营",
+  "roleKey": "operator",
+  "status": 0,
+  "sort": 1,
+  "remark": "内容运营"
+}
+```
+
+**成功响应：**
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "id": 2,
+    "name": "运营",
+    "roleKey": "operator",
+    "status": 0,
+    "sort": 1,
+    "remark": "内容运营",
+    "createdAt": "2026-08-22T00:00:00.000Z",
+    "updatedAt": "2026-08-22T00:00:00.000Z"
+  }
+}
+```
+
+**失败响应：**
+
+| 场景 | 示例 |
+|---|---|
+| 角色编码已存在 | `{ "code": -1, "message": "角色编码 operator 已存在", "data": null }` |
+| 参数不合法 | `{ "code": -1, "message": "角色名称不能为空", "data": null }` |
+| 未登录或 token 失效 | `{ "code": 401, "message": "未登录或登录状态过期", "data": null }` |
+
+#### 10. 更新角色 `POST /roles/update`（需鉴权）
+
+**请求参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| id | number | 是 | 角色 ID |
+| name | string | 是 | 角色名称，1-30 字符 |
+| status | number | 否 | 状态：0=正常 1=停用，不传保留原值 |
+| sort | number | 否 | 显示顺序，不传保留原值 |
+| remark | string | 否 | 备注，最长 255 字符，不传保留原值 |
+
+> `roleKey` 创建后不可修改。
+
+**请求示例：**
+
+```json
+{
+  "id": 2,
+  "name": "运营专员",
+  "status": 0,
+  "sort": 2,
+  "remark": ""
+}
+```
+
+**成功响应：** 更新后的角色对象（同详情接口结构）
+
+**失败响应：**
+
+| 场景 | 示例 |
+|---|---|
+| 角色不存在 | `{ "code": -1, "message": "角色 999 不存在", "data": null }` |
+| 参数不合法 | `{ "code": -1, "message": "角色名称不能为空", "data": null }` |
+| 未登录或 token 失效 | `{ "code": 401, "message": "未登录或登录状态过期", "data": null }` |
+
+#### 11. 删除角色 `POST /roles/delete`（需鉴权）
+
+**请求参数：**
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| id | number | 是 | 角色 ID |
+
+**请求示例：**
+
+```json
+{ "id": 2 }
+```
+
+**成功响应：**
+
+```json
+{ "code": 0, "message": "ok", "data": null }
+```
+
+> 删除为软删除；该角色关联的用户会变为无角色（后续登录/用户查询返回 `role: null`），用户本身不受影响。
+
+**失败响应：**
+
+| 场景 | 示例 |
+|---|---|
+| 角色不存在 | `{ "code": -1, "message": "角色 999 不存在", "data": null }` |
+| 未登录或 token 失效 | `{ "code": 401, "message": "未登录或登录状态过期", "data": null }` |
+
+---
+
 ## 三、备注
 
 - 同一账号可在多个端同时登录，各端会话互不影响。
@@ -293,3 +513,4 @@
 - 登出只影响当前会话，不会影响其他端会话。
 - access_token 有效期 7 天，前端无需关心，只需处理 401。
 - 登录前必须先调 `GET /auth/captcha` 获取验证码，验证码一次性、5 分钟有效。
+- 角色编码（roleKey）创建后不可修改；删除角色后其关联用户的 `role` 变为 null。
