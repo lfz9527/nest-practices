@@ -33,6 +33,14 @@ export class User {
   @Column({ type: 'varchar', length: 255, default: '' })
   password!: string
 
+  @Column({
+    type: 'bigint',
+    unsigned: true,
+    nullable: true,
+    comment: '角色 id',
+  })
+  roleId!: number | null
+
   @Column({ type: 'tinyint', default: 0, comment: '账号状态: 0=正常 1=停用' })
   status!: number
 
